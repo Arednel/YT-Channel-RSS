@@ -2,6 +2,12 @@
 
 ## Development
 
+* 2026-02-02 -- 0.0.5 yt-dlp Channel Fetch and Index page cleanup
+  * Added yt-dlp Python wrapper for channel metadata and video list
+  * Changed Livewire auto update from 5 to 1 second in Index.blade.php
+  * Removed table animation in Index.blade.php
+  * Updated CSS for Index.blade.php
+
 * 2026-02-02 -- 0.0.4 Livewire table and jobs template
   * Added Livewire table with add/delete modal windows
   * Added sync/delete job templates

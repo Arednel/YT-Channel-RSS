@@ -1,4 +1,4 @@
-<div class="glass-card table-card" wire:poll.5s>
+<div class="glass-card table-card" wire:poll.1s>
     <div class="card-header">
         <div>
             <h2 class="card-title">Channels</h2>

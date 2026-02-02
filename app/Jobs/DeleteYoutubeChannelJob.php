@@ -38,7 +38,7 @@ class DeleteYoutubeChannelJob implements ShouldQueue
         ]);
 
         Storage::disk('public')->delete('feeds/' . $channel->youtube_id . '.xml');
-        Storage::disk('local')->deleteDirectory('yt-dlp/' . $channel->youtube_id);
+        File::deleteDirectory(base_path('python/yt-dlp_jsons/' . $channel->youtube_id));
 
         $channel->delete();
 

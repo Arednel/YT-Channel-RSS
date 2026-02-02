@@ -19,7 +19,7 @@ Project that creates RSS feed from YouTube channgel using [yt-dlp](https://githu
 3. pip install -r python/requirements.txt
 
 ## Background jobs (queue)
-This project uses Laravel's database queue. Ensure `QUEUE_CONNECTION=database` in `.env`, then run a worker:
+This project uses Laravel's database queue.
 1. php artisan queue:work
 
-Job logs are written per channel to `python/logs/{youtube_id}/`.
+Job logs are written per channel to `python/logs/{youtube_id}/`. and `logs/{youtube_id}/`
