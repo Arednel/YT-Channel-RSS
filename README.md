@@ -17,3 +17,9 @@ Project that creates RSS feed from YouTube channgel using [yt-dlp](https://githu
 2. source python/venv/bin/activate  
 2.1 # On Windows use: python\venv\Scripts\activate
 3. pip install -r python/requirements.txt
+
+## Background jobs (queue)
+This project uses Laravel's database queue. Ensure `QUEUE_CONNECTION=database` in `.env`, then run a worker:
+1. php artisan queue:work
+
+Job logs are written per channel to `python/logs/{youtube_id}/`.

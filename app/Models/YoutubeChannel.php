@@ -37,6 +37,20 @@ class YoutubeChannel extends Model
         ];
     }
 
+    public function getRssUrlAttribute(): string
+    {
+        return rtrim(config('app.url'), '/') . '/feeds/' . $this->youtube_id;
+    }
+
+    public function getStatusBadgeClassAttribute(): string
+    {
+        return match ($this->status) {
+            'queued', 'syncing' => 'pending',
+            'failed' => 'failed',
+            default => 'completed',
+        };
+    }
+
     public function videos(): HasMany
     {
         return $this->hasMany(YoutubeVideo::class);

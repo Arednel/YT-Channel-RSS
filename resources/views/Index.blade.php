@@ -11,6 +11,7 @@
         href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap"
         rel="stylesheet">
     <link rel="stylesheet" href="{{ asset('css/templatemo-glass-admin-style.css') }}">
+    @livewireStyles
 </head>
 
 <body>
@@ -107,55 +108,7 @@
 
             <!-- Content Grid -->
             <section class="content-grid">
-                <!-- Data Table -->
-                <div class="glass-card table-card">
-                    <div class="card-header">
-                        <div>
-                            <h2 class="card-title">Channels</h2>
-                            <p class="card-subtitle">List of channels</p>
-                        </div>
-                        <div class="card-actions">
-                            <button class="card-btn">Add channel</button>
-                            <button class="card-btn">Delete channel</button>
-                        </div>
-                    </div>
-                    <div class="table-wrapper">
-                        <table class="data-table">
-                            <thead>
-                                <tr>
-                                    <th>Channel</th>
-                                    <th>Link</th>
-                                    <th>RSS Link</th>
-                                    <th>Last updated</th>
-                                    <th>Status</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @forelse ($channels as $channel)
-                                    <tr>
-                                        <td>
-                                            <div class="table-user">
-                                                <div class="table-user-info">
-                                                    <span class="table-user-name">
-                                                        {{ $channel->channel_name ?? 'Untitled channel' }}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td>{{ $channel->channel_url ?? '-' }}</td>
-                                        <td>{{ $channel->rss_url }}</td>
-                                        <td><span class="table-amount">{{ $channel->updated_at }}</span></td>
-                                        <td><span class="status-badge completed">{{ $channel->status }}</span></td>
-                                    </tr>
-                                @empty
-                                    <tr>
-                                        <td colspan="5">No channels found.</td>
-                                    </tr>
-                                @endforelse
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+                @livewire('youtube-rss-channels-table')
             </section>
         </main>
     </div>
@@ -175,6 +128,7 @@
     </footer>
 
     <script src="{{ asset('js/templatemo-glass-admin-script.js') }}"></script>
+    @livewireScripts
 </body>
 
 </html>
