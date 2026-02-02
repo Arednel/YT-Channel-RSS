@@ -131,19 +131,27 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                <tr>
-                                    <td>
-                                        <div class="table-user">
-                                            <div class="table-user-info"><span
-                                                    class="table-user-name">channel_name</span>
+                                @forelse ($channels as $channel)
+                                    <tr>
+                                        <td>
+                                            <div class="table-user">
+                                                <div class="table-user-info">
+                                                    <span class="table-user-name">
+                                                        {{ $channel->channel_name ?? 'Untitled channel' }}
+                                                    </span>
+                                                </div>
                                             </div>
-                                        </div>
-                                    </td>
-                                    <td>channel_url</td>
-                                    <td>rss_url</td>
-                                    <td><span class="table-amount">updated_at</span></td>
-                                    <td><span class="status-badge completed">Completed</span></td>
-                                </tr>
+                                        </td>
+                                        <td>{{ $channel->channel_url ?? '-' }}</td>
+                                        <td>{{ $channel->rss_url }}</td>
+                                        <td><span class="table-amount">{{ $channel->updated_at }}</span></td>
+                                        <td><span class="status-badge completed">{{ $channel->status }}</span></td>
+                                    </tr>
+                                @empty
+                                    <tr>
+                                        <td colspan="5">No channels found.</td>
+                                    </tr>
+                                @endforelse
                             </tbody>
                         </table>
                     </div>
