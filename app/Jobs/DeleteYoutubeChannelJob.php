@@ -2,7 +2,9 @@
 
 namespace App\Jobs;
 
+use App\Enums\YoutubeChannelStatus;
 use App\Models\YoutubeChannel;
+use App\Support\YoutubeBatchManager;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -37,6 +39,14 @@ class DeleteYoutubeChannelJob implements ShouldQueue
             'youtube_id' => $channel->youtube_id,
         ]);
 
+        $batchCanceled = YoutubeBatchManager::cancelActiveVideoBatch($channel);
+        if ($batchCanceled) {
+            $this->channelLogger($channel->youtube_id)->info('Active video batch canceled before delete.', [
+                'channel_id' => $channel->id,
+                'youtube_id' => $channel->youtube_id,
+            ]);
+        }
+
         Storage::disk('public')->delete('feeds/' . $channel->youtube_id . '.xml');
         File::deleteDirectory(base_path('python/yt-dlp_jsons/' . $channel->youtube_id));
 
@@ -56,7 +66,7 @@ class DeleteYoutubeChannelJob implements ShouldQueue
         }
 
         $channel->update([
-            'status' => 'failed',
+            'status' => YoutubeChannelStatus::Failed,
             'last_error' => $exception->getMessage(),
         ]);
 

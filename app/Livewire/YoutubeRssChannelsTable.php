@@ -2,9 +2,11 @@
 
 namespace App\Livewire;
 
+use App\Enums\YoutubeChannelStatus;
 use App\Jobs\DeleteYoutubeChannelJob;
 use App\Jobs\SyncYoutubeChannelJob;
 use App\Models\YoutubeChannel;
+use App\Support\YoutubeBatchManager;
 use Illuminate\Contracts\View\View;
 use Livewire\Component;
 
@@ -81,7 +83,7 @@ class YoutubeRssChannelsTable extends Component
 
         $channel = YoutubeChannel::query()->create([
             'youtube_id' => $youtubeId,
-            'status' => 'queued',
+            'status' => YoutubeChannelStatus::Queued,
         ]);
 
         SyncYoutubeChannelJob::dispatch($channel->id);
@@ -102,6 +104,12 @@ class YoutubeRssChannelsTable extends Component
 
         if ($this->deleteChannelId === null) {
             return;
+        }
+
+        $channel = YoutubeChannel::query()->find($this->deleteChannelId);
+        if ($channel !== null) {
+            YoutubeBatchManager::cancelActiveVideoBatch($channel);
+            $channel->update(['status' => YoutubeChannelStatus::Deleting]);
         }
 
         DeleteYoutubeChannelJob::dispatch($this->deleteChannelId);

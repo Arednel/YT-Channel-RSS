@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\YoutubeChannelStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -23,6 +24,7 @@ class YoutubeChannel extends Model
         'last_sync_at',
         'last_video_id',
         'last_error',
+        'active_video_batch_id',
     ];
 
     /**
@@ -33,6 +35,7 @@ class YoutubeChannel extends Model
     protected function casts(): array
     {
         return [
+            'status' => YoutubeChannelStatus::class,
             'last_sync_at' => 'datetime',
         ];
     }
@@ -44,11 +47,24 @@ class YoutubeChannel extends Model
 
     public function getStatusBadgeClassAttribute(): string
     {
-        return match ($this->status) {
-            'queued', 'syncing' => 'pending',
-            'failed' => 'failed',
-            default => 'completed',
-        };
+        $status = $this->status;
+        if ($status instanceof YoutubeChannelStatus) {
+            return $status->badgeClass();
+        }
+
+        $resolved = is_string($status) ? YoutubeChannelStatus::tryFrom($status) : null;
+
+        return $resolved?->badgeClass() ?? 'completed';
+    }
+
+    public function getStatusLabelAttribute(): string
+    {
+        $status = $this->status;
+        if ($status instanceof YoutubeChannelStatus) {
+            return $status->value;
+        }
+
+        return is_string($status) && $status !== '' ? $status : 'unknown';
     }
 
     public function videos(): HasMany

@@ -2,6 +2,10 @@
 
 ## Development
 
+* 2026-02-06 -- 0.1.0 Videos Fetch
+  * Added video sync logic
+  * Changed Index table poll frequency
+
 * 2026-02-02 -- 0.0.5 yt-dlp Channel Fetch and Index page cleanup
   * Added yt-dlp Python wrapper for channel metadata and video list
   * Changed Livewire auto update from 5 to 1 second in Index.blade.php

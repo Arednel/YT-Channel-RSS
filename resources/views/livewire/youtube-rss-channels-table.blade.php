@@ -1,4 +1,4 @@
-<div class="glass-card table-card" wire:poll.1s>
+<div class="glass-card table-card" wire:poll.250ms>
     <div class="card-header">
         <div>
             <h2 class="card-title">Channels</h2>
@@ -51,7 +51,7 @@
                         </td>
                         <td>
                             <span class="status-badge {{ $channel->status_badge_class }}">
-                                {{ $channel->status ?? 'unknown' }}
+                                {{ $channel->status_label }}
                             </span>
                         </td>
                     </tr>
