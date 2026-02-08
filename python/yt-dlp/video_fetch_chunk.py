@@ -11,6 +11,96 @@ RATE_LIMIT_EXIT_CODE = 29
 PARTIAL_FAILURE_EXIT_CODE = 30
 
 
+def normalize_thumbnail(value: object) -> str:
+    if isinstance(value, str) and value:
+        return value
+
+    if isinstance(value, list):
+        for item in reversed(value):
+            if isinstance(item, dict):
+                url = item.get("url")
+                if isinstance(url, str) and url:
+                    return url
+
+    return ""
+
+
+def compact_video_payload(
+    video_id: str,
+    *,
+    source_entry: dict | None = None,
+    info: dict | None = None,
+    restricted: bool = False,
+    upcoming: bool = False,
+) -> dict:
+    payload: dict = {"id": video_id}
+    keys = [
+        "title",
+        "description",
+        "upload_date",
+        "timestamp",
+        "release_timestamp",
+        "modified_date",
+        "modified_timestamp",
+        "live_status",
+    ]
+
+    for key in keys:
+        value = None
+        if isinstance(info, dict):
+            value = info.get(key)
+        if value is None and isinstance(source_entry, dict):
+            value = source_entry.get(key)
+        if value is not None:
+            payload[key] = value
+
+    is_upcoming_value = None
+    if isinstance(info, dict):
+        is_upcoming_value = info.get("is_upcoming")
+    if is_upcoming_value is None and isinstance(source_entry, dict):
+        is_upcoming_value = source_entry.get("is_upcoming")
+    if is_upcoming_value is not None:
+        payload["is_upcoming"] = bool(is_upcoming_value)
+
+    thumbnail = ""
+    if isinstance(info, dict):
+        thumbnail = normalize_thumbnail(
+            info.get("thumbnail")
+            if isinstance(info.get("thumbnail"), str)
+            else info.get("thumbnails")
+        )
+    if not thumbnail and isinstance(source_entry, dict):
+        thumbnail = normalize_thumbnail(
+            source_entry.get("thumbnail")
+            if isinstance(source_entry.get("thumbnail"), str)
+            else source_entry.get("thumbnails")
+        )
+    if thumbnail:
+        payload["thumbnail"] = thumbnail
+
+    if restricted:
+        payload["restricted"] = True
+    if upcoming:
+        payload["is_upcoming"] = True
+
+    return payload
+
+
+def build_fallback_payload(
+    video_id: str,
+    source_entry: dict | None,
+    *,
+    restricted: bool = False,
+    upcoming: bool = False,
+) -> dict:
+    return compact_video_payload(
+        video_id,
+        source_entry=source_entry,
+        restricted=restricted,
+        upcoming=upcoming,
+    )
+
+
 def load_source_entries(path: Path) -> list[dict]:
     if not path.exists():
         return []
@@ -89,6 +179,7 @@ def main() -> int:
     successful = 0
     failed = 0
     restricted = 0
+    upcoming = 0
     rate_limited = False
     temp_files: list[Path] = []
 
@@ -122,36 +213,53 @@ def main() -> int:
                 break
 
             if status == "ok" and isinstance(info, dict):
+                fallback_entry = source_entry_by_id.get(video_id)
+                compact_payload = compact_video_payload(
+                    video_id,
+                    source_entry=fallback_entry,
+                    info=info,
+                )
                 json_path = tmp_dir / f"{video_id}.json"
                 with open(json_path, "w", encoding="utf-8") as handle:
-                    json.dump(info, handle, ensure_ascii=False)
+                    json.dump(compact_payload, handle, ensure_ascii=False)
                 temp_files.append(json_path)
                 successful += 1
             elif status == "restricted":
                 fallback_entry = source_entry_by_id.get(video_id)
-                if isinstance(fallback_entry, dict):
-                    fallback_payload = dict(fallback_entry)
-                    fallback_payload["restricted"] = True
+                if fallback_entry is None:
+                    logging.warning(
+                        "Restricted video fallback missing source entry. id=%s",
+                        video_id,
+                    )
 
-                    json_path = tmp_dir / f"{video_id}.json"
-                    with open(json_path, "w", encoding="utf-8") as handle:
-                        json.dump(fallback_payload, handle, ensure_ascii=False)
-                    temp_files.append(json_path)
-                else:
-                    failed += 1
+                fallback_payload = build_fallback_payload(
+                    video_id,
+                    fallback_entry,
+                    restricted=True,
+                )
+                json_path = tmp_dir / f"{video_id}.json"
+                with open(json_path, "w", encoding="utf-8") as handle:
+                    json.dump(fallback_payload, handle, ensure_ascii=False)
+                temp_files.append(json_path)
                 restricted += 1
             elif status == "upcoming":
                 fallback_entry = source_entry_by_id.get(video_id)
-                if isinstance(fallback_entry, dict):
-                    fallback_payload = dict(fallback_entry)
-                    fallback_payload["is_upcoming"] = True
+                if fallback_entry is None:
+                    logging.info(
+                        "Upcoming video fallback missing source entry. id=%s",
+                        video_id,
+                    )
 
-                    json_path = tmp_dir / f"{video_id}.json"
-                    with open(json_path, "w", encoding="utf-8") as handle:
-                        json.dump(fallback_payload, handle, ensure_ascii=False)
-                    temp_files.append(json_path)
-                else:
-                    failed += 1
+                fallback_payload = build_fallback_payload(
+                    video_id,
+                    fallback_entry,
+                    upcoming=True,
+                )
+                json_path = tmp_dir / f"{video_id}.json"
+                with open(json_path, "w", encoding="utf-8") as handle:
+                    json.dump(fallback_payload, handle, ensure_ascii=False)
+                temp_files.append(json_path)
+                upcoming += 1
             else:
                 failed += 1
     finally:
@@ -187,10 +295,11 @@ def main() -> int:
         pass
 
     logging.info(
-        "Chunk completed. total=%s successful=%s restricted=%s failed=%s workers=%s source=%s output=%s",
+        "Chunk completed. total=%s successful=%s restricted=%s upcoming=%s failed=%s workers=%s source=%s output=%s",
         len(video_ids),
         successful,
         restricted,
+        upcoming,
         failed,
         workers,
         source_path,

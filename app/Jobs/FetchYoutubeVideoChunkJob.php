@@ -270,21 +270,11 @@ class FetchYoutubeVideoChunkJob implements ShouldQueue
 
     private function parseDate(mixed $ymdDate, mixed $timestamp, mixed $fallbackTimestamp = null): ?Carbon
     {
-        if (is_string($ymdDate) && $ymdDate !== '') {
-            try {
-                return Carbon::createFromFormat('Ymd', $ymdDate, 'UTC')
-                    ->startOfDay()
-                    ->utc();
-            } catch (\Throwable) {
-                // Fall through.
-            }
-        }
-
         if (is_numeric($timestamp)) {
             try {
                 return Carbon::createFromTimestamp((int) $timestamp, 'UTC')->utc();
             } catch (\Throwable) {
-                return null;
+                // Fall through.
             }
         }
 
@@ -292,7 +282,17 @@ class FetchYoutubeVideoChunkJob implements ShouldQueue
             try {
                 return Carbon::createFromTimestamp((int) $fallbackTimestamp, 'UTC')->utc();
             } catch (\Throwable) {
-                return null;
+                // Fall through.
+            }
+        }
+
+        if (is_string($ymdDate) && $ymdDate !== '') {
+            try {
+                return Carbon::createFromFormat('Ymd', $ymdDate, 'UTC')
+                    ->startOfDay()
+                    ->utc();
+            } catch (\Throwable) {
+                // Fall through.
             }
         }
 

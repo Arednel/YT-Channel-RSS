@@ -23,8 +23,10 @@ Mapped in `config/youtube.php`.
 ### Chunking and concurrency
 - `YOUTUBE_VIDEO_CHUNK_SIZE` (default `50`)
   - Number of video ids per chunk file.
+  - Larger values increase per-job memory pressure because chunk rows are buffered before DB upsert.
 - `YOUTUBE_VIDEO_FETCH_THREADS` (default `8`)
   - Python worker threads per chunk process.
+  - Higher values increase parallel yt-dlp requests and can increase rate-limit risk.
 
 ### Retry/rate limit behavior
 - `YOUTUBE_VIDEO_RATE_LIMIT_COOLDOWN` (default `300`)
@@ -50,6 +52,17 @@ Registered in `AppServiceProvider`:
   - Applies to limiter `youtube-video-chunk` by `youtubeId`.
 
 Queue middleware wrappers live under `App\Jobs\Middleware` and delegate to Laravel queue middleware primitives (`WithoutOverlapping`, `RateLimited`, `SkipIfBatchCancelled`).
+
+## Chunk Payload Contract (Current)
+- `python/yt-dlp/video_fetch_chunk.py` writes compact JSONL rows containing only fields Laravel currently persists.
+- Successful yt-dlp responses are sanitized before JSON encoding to avoid non-serializable values.
+- `restricted` and `upcoming` videos use fallback compact payloads so chunk jobs continue instead of failing fast.
+- This reduced payload format is intentional and helps avoid PHP memory exhaustion when reading chunk files.
+
+## Timestamp Persistence Behavior
+- `published_date` and `updated_date` are stored as UTC timestamps in MySQL.
+- Import behavior prefers Unix timestamp fields when present (`timestamp`, `modified_timestamp`, `release_timestamp`), then falls back to date-only `upload_date` (`Ymd`).
+- Result: full time is preserved when yt-dlp provides it; otherwise values fall back to midnight UTC.
 
 ## Filesystem Paths Used by Feature
 

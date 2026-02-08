@@ -134,11 +134,17 @@ Key rules:
   - `SkipIfBatchCancelled`
   - `RateLimited('youtube-video-chunk')`
 - Runs Python `video_fetch_chunk.py` for one chunk.
+- Python classifies each video fetch as `ok`, `restricted`, `upcoming`, `failed`, or `rate_limited`.
+- `ok` rows use sanitized yt-dlp metadata and are written as compact payloads (only fields consumed by Laravel).
+- `restricted` and `upcoming` statuses write fallback compact payloads and continue chunk processing.
 - Exit code handling:
   - `29`: rate-limited -> requeue same chunk later with reduced threads.
   - `30`: partial failure -> throws runtime exception.
 - Upserts rows to `youtube_videos`.
 - Normalizes timestamps to UTC.
+- Timestamp resolution in `FetchYoutubeVideoChunkJob`:
+  - `published_date`: prefers Unix `timestamp`, then `release_timestamp`, then date-only `upload_date` (`Ymd`, midnight UTC).
+  - `updated_date`: prefers `modified_timestamp` and falls back to `published_date`.
 
 ### 5) Batch Finalization
 - Action: `FinalizeYoutubeVideoChunkBatchAction` (called from batch `finally`)
@@ -182,9 +188,16 @@ Key rules:
 - `python/yt-dlp/channel_fetch.py`
   - Produces `channel.json` and `videos.jsonl`.
 - `python/yt-dlp/video_fetch_chunk.py`
-  - Produces per-chunk JSONL with detailed metadata.
+  - Produces per-chunk JSONL with compact metadata payloads used by Laravel.
   - Handles rate limiting and restricted/upcoming fallback payloads.
+  - Uses status-aware behavior so upcoming live events do not fail the entire chunk.
 - Shared helpers:
   - `python/yt-dlp/lib/common.py`
   - `python/yt-dlp/lib/channel_list.py`
   - `python/yt-dlp/lib/video_detail.py`
+    - Classifies yt-dlp errors (rate-limited/restricted/upcoming/failed).
+    - Sanitizes metadata payloads before serialization.
+
+## Feed Timestamp Output
+- Atom `<published>` and `<updated>` values are emitted from DB datetimes via `Carbon::toAtomString()`.
+- When Unix timestamps are available from yt-dlp, feed entries include full time (hour/minute/second) instead of midnight-only dates.

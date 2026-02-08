@@ -2,6 +2,13 @@
 
 ## Development
 
+* 2026-02-09 -- 0.4.1 Chunk Fetch Stability Fixes
+  * Fixed upcoming live-event handling in Python fetch so messages like "This live event will begin in X days" are treated as upcoming metadata, not hard failures
+  * Added broader yt-dlp error classification fallback for non-`DownloadError` exceptions in `python/yt-dlp/lib/video_detail.py`
+  * Sanitized yt-dlp info payloads before serialization to avoid `LazyList` JSON errors (`Object of type LazyList is not JSON serializable`)
+  * Reduced per-video chunk payload size by writing only fields used by Laravel, preventing oversized JSONL rows and PHP memory exhaustion during `FetchYoutubeVideoChunkJob`
+  * Full timestamps are saved (including hour/minute/second) and added to final XML
+
 * 2026-02-09 -- 0.4.0 Refactoring and Documentation
   * Refactored sync orchestration: `SyncYoutubeChannelJob` now delegates to focused actions under `app/Actions/Youtube/`
   * Centralized channel state transitions in domain methods on `YoutubeChannel`

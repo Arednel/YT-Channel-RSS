@@ -66,6 +66,7 @@ php artisan youtube:maintenance --scheduled --force
    - New videos included.
    - Existing videos included only if currently marked `is_upcoming`.
 5. If chunks exist -> `YoutubeChannel::markFetchingVideos()`, batch runs chunk jobs.
+   - Per-video statuses `restricted` and `upcoming` are persisted as fallback metadata and do not count as hard chunk failures.
 6. Batch finalize:
    - Any failed chunks -> `YoutubeChannel::markFailed()`.
    - Otherwise -> `YoutubeChannel::markBuildingFeed()`.
