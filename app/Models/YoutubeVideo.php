@@ -22,6 +22,8 @@ class YoutubeVideo extends Model
         'video_title',
         'published_date',
         'updated_date',
+        'is_upcoming',
+        'scheduled_start_at',
         'media_title',
         'media_content_url',
         'media_thumbnail_url',
@@ -38,6 +40,8 @@ class YoutubeVideo extends Model
         return [
             'published_date' => 'datetime',
             'updated_date' => 'datetime',
+            'is_upcoming' => 'boolean',
+            'scheduled_start_at' => 'datetime',
         ];
     }
 

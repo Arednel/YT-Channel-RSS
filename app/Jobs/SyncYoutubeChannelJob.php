@@ -102,11 +102,13 @@ class SyncYoutubeChannelJob implements ShouldQueue
 
         if (File::exists($channelJsonPath)) {
             $channelData = json_decode(File::get($channelJsonPath), true);
-            $channelName = $channelData['channel'] ?? $channelData['uploader'] ?? $channelData['title'] ?? null;
+            $channelName = $this->resolveChannelName($channelData);
 
-            $channel->update([
-                'channel_name' => $channelName,
-            ]);
+            if ($channelName !== null) {
+                $channel->update([
+                    'channel_name' => $channelName,
+                ]);
+            }
         }
 
         if (File::exists($videosJsonPath)) {
@@ -149,6 +151,8 @@ class SyncYoutubeChannelJob implements ShouldQueue
                         'title' => $video['title'] ?? null,
                         'upload_date' => $video['upload_date'] ?? null,
                         'timestamp' => $video['timestamp'] ?? null,
+                        'release_timestamp' => $video['release_timestamp'] ?? null,
+                        'live_status' => $video['live_status'] ?? null,
                         'thumbnail' => $video['thumbnail'] ?? null,
                         'thumbnails' => $video['thumbnails'] ?? null,
                         'description' => $video['description'] ?? null,
@@ -239,7 +243,9 @@ class SyncYoutubeChannelJob implements ShouldQueue
                                 return;
                             }
 
-                            DB::transaction(function () use ($freshChannel, $batch): void {
+                            $shouldBuildFeed = false;
+
+                            DB::transaction(function () use ($freshChannel, $batch, &$shouldBuildFeed): void {
                                 YoutubeBatchManager::setActiveVideoBatchId($freshChannel, null);
 
                                 if ($freshChannel->status === YoutubeChannelStatus::Deleting) {
@@ -256,10 +262,15 @@ class SyncYoutubeChannelJob implements ShouldQueue
                                 }
 
                                 $freshChannel->update([
-                                    'status' => YoutubeChannelStatus::Idle,
-                                    'last_sync_at' => now(),
+                                    'status' => YoutubeChannelStatus::BuildingFeed,
                                 ]);
+
+                                $shouldBuildFeed = true;
                             });
+
+                            if ($shouldBuildFeed) {
+                                BuildYoutubeFeedJob::dispatch($channelId);
+                            }
                         })
                         ->dispatch();
 
@@ -284,18 +295,28 @@ class SyncYoutubeChannelJob implements ShouldQueue
             }
         }
 
-        DB::transaction(function () use ($channel): void {
+        $shouldBuildFeed = false;
+        DB::transaction(function () use ($channel, &$shouldBuildFeed): void {
             $freshChannel = YoutubeChannel::query()->find($channel->id);
             if ($freshChannel === null) {
                 return;
             }
 
+            if ($freshChannel->status === YoutubeChannelStatus::Deleting) {
+                return;
+            }
+
             $freshChannel->update([
-                'status' => YoutubeChannelStatus::Idle,
-                'last_sync_at' => now(),
+                'status' => YoutubeChannelStatus::BuildingFeed,
                 'active_video_batch_id' => null,
             ]);
+
+            $shouldBuildFeed = true;
         });
+
+        if ($shouldBuildFeed) {
+            BuildYoutubeFeedJob::dispatch($channel->id);
+        }
 
         $this->channelLogger($channel->youtube_id)->info('YouTube channel sync finished.', [
             'local_database_channel_id' => $channel->id,
@@ -351,5 +372,79 @@ class SyncYoutubeChannelJob implements ShouldQueue
         }
 
         return 'python';
+    }
+
+    private function resolveChannelName(mixed $channelData): ?string
+    {
+        if (! is_array($channelData)) {
+            return null;
+        }
+
+        $name = $this->firstNonEmptyString([
+            $channelData['channel'] ?? null,
+            $channelData['uploader'] ?? null,
+        ]);
+
+        $title = $channelData['title'] ?? null;
+        if ($name === null && is_string($title) && $title !== '' && ! str_starts_with($title, '@')) {
+            $name = $title;
+        }
+
+        if ($name !== null) {
+            return $name;
+        }
+
+        $entries = $channelData['entries'] ?? null;
+        if (! is_array($entries)) {
+            return null;
+        }
+
+        foreach ($entries as $entry) {
+            if (! is_array($entry)) {
+                continue;
+            }
+
+            $name = $this->firstNonEmptyString([
+                $entry['channel'] ?? null,
+                $entry['uploader'] ?? null,
+            ]);
+
+            if ($name !== null) {
+                return $name;
+            }
+
+            $nestedEntries = $entry['entries'] ?? null;
+            if (! is_array($nestedEntries)) {
+                continue;
+            }
+
+            foreach ($nestedEntries as $nestedEntry) {
+                if (! is_array($nestedEntry)) {
+                    continue;
+                }
+
+                $name = $this->firstNonEmptyString([
+                    $nestedEntry['channel'] ?? null,
+                    $nestedEntry['uploader'] ?? null,
+                ]);
+
+                if ($name !== null) {
+                    return $name;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private function firstNonEmptyString(array $values): ?string
+    {
+        foreach ($values as $value) {
+            if (is_string($value) && $value !== '') {
+                return $value;
+            }
+        }
+
+        return null;
     }
 }

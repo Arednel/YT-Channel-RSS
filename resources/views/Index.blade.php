@@ -128,6 +128,7 @@
     </footer>
 
     <script src="{{ asset('js/templatemo-glass-admin-script.js') }}"></script>
+    <script src="{{ asset('js/rss-copy-to-clipboard.js') }}"></script>
     @livewireScripts
 </body>
 

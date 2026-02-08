@@ -142,7 +142,12 @@ class FetchYoutubeVideoChunkJob implements ShouldQueue
                 continue;
             }
 
-            $publishedDate = $this->parseDate($video['upload_date'] ?? null, $video['timestamp'] ?? null);
+            $scheduledStartAt = $this->parseDate(null, $video['release_timestamp'] ?? null);
+            $publishedDate = $this->parseDate(
+                $video['upload_date'] ?? null,
+                $video['timestamp'] ?? null,
+                $video['release_timestamp'] ?? null
+            );
             if (! $publishedDate instanceof Carbon) {
                 $this->channelLogger()->warning('Skipping video without published date.', [
                     'chunk_number' => $this->chunkIndex + 1,
@@ -152,6 +157,7 @@ class FetchYoutubeVideoChunkJob implements ShouldQueue
             }
 
             $updatedDate = $this->parseDate($video['modified_date'] ?? null, $video['modified_timestamp'] ?? null) ?? $publishedDate;
+            $isUpcoming = $this->isUpcomingVideo($video);
 
             $thumbnailUrl = $this->resolveThumbnailUrl($video);
             $videoTitle = (string) ($video['title'] ?? '');
@@ -163,6 +169,8 @@ class FetchYoutubeVideoChunkJob implements ShouldQueue
                 'video_title' => $videoTitle,
                 'published_date' => $publishedDate,
                 'updated_date' => $updatedDate,
+                'is_upcoming' => $isUpcoming,
+                'scheduled_start_at' => $scheduledStartAt,
                 'media_title' => $videoTitle,
                 'media_content_url' => 'https://www.youtube.com/v/' . $youtubeVideoId . '?version=3',
                 'media_thumbnail_url' => $thumbnailUrl,
@@ -185,6 +193,8 @@ class FetchYoutubeVideoChunkJob implements ShouldQueue
                     'video_title',
                     'published_date',
                     'updated_date',
+                    'is_upcoming',
+                    'scheduled_start_at',
                     'media_title',
                     'media_content_url',
                     'media_thumbnail_url',
@@ -239,7 +249,7 @@ class FetchYoutubeVideoChunkJob implements ShouldQueue
         dispatch($retryJob);
     }
 
-    private function parseDate(mixed $ymdDate, mixed $timestamp): ?Carbon
+    private function parseDate(mixed $ymdDate, mixed $timestamp, mixed $fallbackTimestamp = null): ?Carbon
     {
         if (is_string($ymdDate) && $ymdDate !== '') {
             try {
@@ -257,7 +267,29 @@ class FetchYoutubeVideoChunkJob implements ShouldQueue
             }
         }
 
+        if (is_numeric($fallbackTimestamp)) {
+            try {
+                return Carbon::createFromTimestamp((int) $fallbackTimestamp);
+            } catch (\Throwable) {
+                return null;
+            }
+        }
+
         return null;
+    }
+
+    private function isUpcomingVideo(array $video): bool
+    {
+        if (($video['is_upcoming'] ?? false) === true) {
+            return true;
+        }
+
+        $liveStatus = $video['live_status'] ?? null;
+        if (is_string($liveStatus) && $liveStatus === 'is_upcoming') {
+            return true;
+        }
+
+        return false;
     }
 
     private function resolveThumbnailUrl(array $video): string

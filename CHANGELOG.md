@@ -2,6 +2,13 @@
 
 ## Development
 
+* 2026-02-06 -- 0.2.0 XML Feed and Fixes
+  * Added XML Feed Builder
+  * Updated Index.blade.php
+  * Added "age-restricted" video fetch handling
+  * Fixed channel name fetch if there is no videos on the channel
+  * Fixed video fetch behavior in case of live event
+
 * 2026-02-06 -- 0.1.0 Videos Fetch
   * Added video sync logic
   * Changed Index table poll frequency

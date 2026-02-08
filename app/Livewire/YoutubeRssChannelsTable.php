@@ -17,6 +17,12 @@ class YoutubeRssChannelsTable extends Component
     public bool $showModal = false;
     public bool $showDeleteModal = false;
     public bool $confirmDelete = false;
+    /** @var array<int, string> */
+    public array $rssLinkErrors = [];
+    /** @var array<int, string> */
+    public array $rssLinkSuccesses = [];
+    /** @var array<int, int> */
+    public array $rssLinkSuccessExpiresAt = [];
 
     /**
      * @return array<string, array<int, string>>
@@ -34,6 +40,22 @@ class YoutubeRssChannelsTable extends Component
         $channels = YoutubeChannel::query()
             ->orderBy('id')
             ->get();
+        $statusById = $channels->pluck('status_label', 'id');
+        $nowTs = now()->getTimestamp();
+
+        foreach (array_keys($this->rssLinkErrors) as $channelId) {
+            $statusLabel = $statusById->get($channelId);
+            if (! is_string($statusLabel) || $statusLabel === YoutubeChannelStatus::Idle->value) {
+                unset($this->rssLinkErrors[$channelId]);
+            }
+        }
+
+        foreach (array_keys($this->rssLinkSuccesses) as $channelId) {
+            $expiresAt = $this->rssLinkSuccessExpiresAt[$channelId] ?? 0;
+            if (! is_int($expiresAt) || $expiresAt <= $nowTs) {
+                unset($this->rssLinkSuccesses[$channelId], $this->rssLinkSuccessExpiresAt[$channelId]);
+            }
+        }
 
         return view('livewire.youtube-rss-channels-table', [
             'channels' => $channels,
@@ -119,6 +141,31 @@ class YoutubeRssChannelsTable extends Component
         $this->deleteChannelId = null;
     }
 
+    public function copyRssLink(int $channelId): void
+    {
+        $channel = YoutubeChannel::query()->find($channelId);
+        if ($channel === null) {
+            return;
+        }
+
+        $status = $channel->status;
+        if ($status !== YoutubeChannelStatus::Idle) {
+            $statusLabel = $channel->status_label;
+            $this->rssLinkErrors[$channel->id] = $this->isFetchingStatus($statusLabel)
+                ? 'RSS is being fetched now. Please wait until status is idle.'
+                : 'RSS link can be copied only when status is idle.';
+            unset($this->rssLinkSuccesses[$channel->id], $this->rssLinkSuccessExpiresAt[$channel->id]);
+
+            return;
+        }
+
+        unset($this->rssLinkErrors[$channel->id]);
+        $this->rssLinkSuccesses[$channel->id] = 'Copied to clipboard.';
+        $this->rssLinkSuccessExpiresAt[$channel->id] = now()->addSeconds(3)->getTimestamp();
+
+        $this->dispatch('rss-copy-to-clipboard', text: $channel->rss_url);
+    }
+
     private function extractYoutubeId(string $url): ?string
     {
         if (preg_match('/@[^\/\?\#]+/i', $url, $matches) === 1) {
@@ -126,5 +173,16 @@ class YoutubeRssChannelsTable extends Component
         }
 
         return null;
+    }
+
+    private function isFetchingStatus(string $statusLabel): bool
+    {
+        return in_array($statusLabel, [
+            YoutubeChannelStatus::Syncing->value,
+            YoutubeChannelStatus::FetchingVideoList->value,
+            YoutubeChannelStatus::FetchingVideos->value,
+            YoutubeChannelStatus::BuildingFeed->value,
+            YoutubeChannelStatus::Queued->value,
+        ], true);
     }
 }

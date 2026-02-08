@@ -22,4 +22,4 @@ Project that creates RSS feed from YouTube channgel using [yt-dlp](https://githu
 This project uses Laravel's database queue.
 1. php artisan queue:work
 
-Job logs are written per channel to `python/logs/{youtube_id}/`. and `logs/{youtube_id}/`
+Job logs are written per channel to `python/logs/{youtube_id}/` and `storage/logs/{youtube_id}/`.

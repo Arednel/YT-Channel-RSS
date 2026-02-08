@@ -39,9 +39,16 @@
                         <td>
                             @if ($channel->rss_url)
                                 <a href="{{ $channel->rss_url }}" class="copy-rss-link"
-                                    data-copy-text="{{ $channel->rss_url }}">
+                                    data-copy-text="{{ $channel->rss_url }}"
+                                    wire:click.prevent="copyRssLink({{ $channel->id }})">
                                     {{ $channel->rss_url }}
                                 </a>
+                                @if (isset($rssLinkErrors[$channel->id]))
+                                    <div class="form-error">{{ $rssLinkErrors[$channel->id] }}</div>
+                                @endif
+                                @if (isset($rssLinkSuccesses[$channel->id]))
+                                    <div class="form-success">{{ $rssLinkSuccesses[$channel->id] }}</div>
+                                @endif
                             @else
                                 -
                             @endif

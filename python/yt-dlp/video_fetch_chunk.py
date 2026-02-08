@@ -57,6 +57,24 @@ def is_members_only_error(message: str) -> bool:
     )
 
 
+def is_age_restricted_error(message: str) -> bool:
+    lowered = message.lower()
+    return (
+        "sign in to confirm your age" in lowered
+        or "age-restricted" in lowered
+        or "this video may be inappropriate for some users" in lowered
+    )
+
+
+def is_restricted_video_error(message: str) -> bool:
+    return is_members_only_error(message) or is_age_restricted_error(message)
+
+
+def is_upcoming_live_error(message: str) -> bool:
+    lowered = message.lower()
+    return "this live event will begin in" in lowered or "premieres in" in lowered
+
+
 def load_source_entries(path: Path) -> list[dict]:
     if not path.exists():
         return []
@@ -112,11 +130,11 @@ def fetch_video_info(
             if is_rate_limit_error(message):
                 logging.error("Rate limit detected. id=%s error=%s", video_id, message)
                 return "rate_limited", None
-            if is_members_only_error(message):
+            if is_restricted_video_error(message):
                 probe_status, members_info = try_fetch_members_only_metadata(video_id)
                 if probe_status == "ok" and isinstance(members_info, dict):
                     logging.info(
-                        "Members-only metadata extracted. id=%s upload_date=%s timestamp=%s",
+                        "Restricted video metadata extracted. id=%s upload_date=%s timestamp=%s",
                         video_id,
                         members_info.get("upload_date"),
                         members_info.get("timestamp"),
@@ -126,11 +144,18 @@ def fetch_video_info(
                     return "rate_limited", None
 
                 logging.warning(
-                    "Members-only video, skipping retries. id=%s error=%s",
+                    "Restricted video, skipping retries. id=%s error=%s",
                     video_id,
                     message,
                 )
                 return "restricted", None
+            if is_upcoming_live_error(message):
+                logging.info(
+                    "Upcoming live stream detected, skipping retries. id=%s error=%s",
+                    video_id,
+                    message,
+                )
+                return "upcoming", None
 
             logging.error(
                 "Video fetch failed. id=%s attempt=%s/%s error=%s",
@@ -262,6 +287,18 @@ def main() -> int:
                 else:
                     failed += 1
                 restricted += 1
+            elif status == "upcoming":
+                fallback_entry = source_entry_by_id.get(video_id)
+                if isinstance(fallback_entry, dict):
+                    fallback_payload = dict(fallback_entry)
+                    fallback_payload["is_upcoming"] = True
+
+                    json_path = tmp_dir / f"{video_id}.json"
+                    with open(json_path, "w", encoding="utf-8") as handle:
+                        json.dump(fallback_payload, handle, ensure_ascii=False)
+                    temp_files.append(json_path)
+                else:
+                    failed += 1
             else:
                 failed += 1
 

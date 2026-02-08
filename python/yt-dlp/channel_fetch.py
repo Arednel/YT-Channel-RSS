@@ -2,6 +2,7 @@ import argparse
 import json
 import logging
 import os
+from collections.abc import Iterable
 
 import yt_dlp
 from yt_dlp.utils import DownloadError
@@ -57,6 +58,86 @@ def write_json(path: str, payload: dict) -> None:
         json.dump(payload, handle, ensure_ascii=False)
 
 
+def first_non_empty_string(values: Iterable[object]) -> str | None:
+    for value in values:
+        if isinstance(value, str) and value.strip() != "":
+            return value
+    return None
+
+
+def normalize_channel_info(channel_info: dict) -> dict:
+    resolved = dict(channel_info)
+
+    channel_name = first_non_empty_string(
+        [resolved.get("channel"), resolved.get("uploader")]
+    )
+    channel_id = first_non_empty_string([resolved.get("channel_id")])
+    uploader_id = first_non_empty_string([resolved.get("uploader_id")])
+    channel_url = first_non_empty_string([resolved.get("channel_url")])
+    uploader_url = first_non_empty_string([resolved.get("uploader_url")])
+
+    first_level_entries = resolved.get("entries") or []
+    if isinstance(first_level_entries, list):
+        for entry in first_level_entries:
+            if not isinstance(entry, dict):
+                continue
+
+            channel_name = channel_name or first_non_empty_string(
+                [entry.get("channel"), entry.get("uploader")]
+            )
+            channel_id = channel_id or first_non_empty_string([entry.get("channel_id")])
+            uploader_id = uploader_id or first_non_empty_string([entry.get("uploader_id")])
+            channel_url = channel_url or first_non_empty_string([entry.get("channel_url")])
+            uploader_url = uploader_url or first_non_empty_string([entry.get("uploader_url")])
+
+            nested_entries = entry.get("entries") or []
+            if not isinstance(nested_entries, list):
+                continue
+
+            for nested in nested_entries:
+                if not isinstance(nested, dict):
+                    continue
+                channel_name = channel_name or first_non_empty_string(
+                    [nested.get("channel"), nested.get("uploader")]
+                )
+                channel_id = channel_id or first_non_empty_string(
+                    [nested.get("channel_id")]
+                )
+                uploader_id = uploader_id or first_non_empty_string(
+                    [nested.get("uploader_id")]
+                )
+                channel_url = channel_url or first_non_empty_string(
+                    [nested.get("channel_url")]
+                )
+                uploader_url = uploader_url or first_non_empty_string(
+                    [nested.get("uploader_url")]
+                )
+
+                if channel_name and channel_id and uploader_id and channel_url and uploader_url:
+                    break
+
+            if channel_name and channel_id and uploader_id and channel_url and uploader_url:
+                break
+
+    if channel_name is not None:
+        resolved["channel"] = channel_name
+        resolved["uploader"] = resolved.get("uploader") or channel_name
+
+    if channel_id is not None:
+        resolved["channel_id"] = channel_id
+
+    if uploader_id is not None:
+        resolved["uploader_id"] = uploader_id
+
+    if channel_url is not None:
+        resolved["channel_url"] = channel_url
+
+    if uploader_url is not None:
+        resolved["uploader_url"] = uploader_url
+
+    return resolved
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--channel-url", required=True)
@@ -77,6 +158,8 @@ def main():
     if channel_info is None:
         logging.error("Channel metadata fetch returned empty result.")
         return 1
+
+    channel_info = normalize_channel_info(channel_info)
 
     write_json(channel_json_path, channel_info)
 
