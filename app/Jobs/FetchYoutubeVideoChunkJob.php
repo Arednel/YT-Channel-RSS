@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Models\YoutubeChannel;
 use App\Models\YoutubeVideo;
+use App\Support\PythonBinaryResolver;
 use Carbon\Carbon;
 use Illuminate\Bus\Batchable;
 use Illuminate\Bus\Queueable;
@@ -32,7 +33,8 @@ class FetchYoutubeVideoChunkJob implements ShouldQueue
         public int $chunkIndex,
         public int $chunkSize,
         public string $sourceFile,
-        public ?int $threadCount = null
+        public ?int $threadCount = null,
+        public int $rateLimitRetryAttempt = 0
     ) {}
 
     /**
@@ -77,9 +79,10 @@ class FetchYoutubeVideoChunkJob implements ShouldQueue
         File::ensureDirectoryExists($pythonLogDirectory);
         $pythonLogFile = $pythonLogDirectory . '/' . $chunkPrefix . '.log';
         $threadCount = $this->resolvedThreadCount();
+        $pythonTimeoutSeconds = max(60, (int) config('youtube.python_process_timeout_seconds', 600));
 
-        $processResult = Process::forever()->run([
-            $this->resolvePythonBinary(),
+        $processResult = Process::timeout($pythonTimeoutSeconds)->run([
+            PythonBinaryResolver::resolve(),
             base_path('python/yt-dlp/video_fetch_chunk.py'),
             '--source-dir',
             $baseDirectory,
@@ -219,9 +222,24 @@ class FetchYoutubeVideoChunkJob implements ShouldQueue
         $minThreads = 1;
         $currentThreads = $this->resolvedThreadCount();
         $nextThreads = max($minThreads, $currentThreads - 1);
+        $maxRetries = max(0, (int) config('youtube.video_rate_limit_max_retries', 5));
+        $nextAttempt = $this->rateLimitRetryAttempt + 1;
+
+        if ($nextAttempt > $maxRetries) {
+            $this->channelLogger()->error('Rate limit retry limit reached for chunk.', [
+                'chunk_number' => $this->chunkIndex + 1,
+                'attempt' => $this->rateLimitRetryAttempt,
+                'max_retries' => $maxRetries,
+                'current_threads' => $currentThreads,
+            ]);
+
+            throw new \RuntimeException('yt-dlp video chunk fetch exceeded rate-limit retries.');
+        }
 
         $this->channelLogger()->warning('Rate limit detected for chunk, re-dispatching with lower/equal threads.', [
             'chunk_number' => $this->chunkIndex + 1,
+            'attempt' => $nextAttempt,
+            'max_retries' => $maxRetries,
             'current_threads' => $currentThreads,
             'next_threads' => $nextThreads,
             'cooldown_seconds' => $cooldown,
@@ -233,7 +251,8 @@ class FetchYoutubeVideoChunkJob implements ShouldQueue
             $this->chunkIndex,
             $this->chunkSize,
             $this->sourceFile,
-            $nextThreads
+            $nextThreads,
+            $nextAttempt
         );
         $retryJob->delay(now()->addSeconds($cooldown));
 
@@ -253,7 +272,9 @@ class FetchYoutubeVideoChunkJob implements ShouldQueue
     {
         if (is_string($ymdDate) && $ymdDate !== '') {
             try {
-                return Carbon::createFromFormat('Ymd', $ymdDate)->startOfDay();
+                return Carbon::createFromFormat('Ymd', $ymdDate, 'UTC')
+                    ->startOfDay()
+                    ->utc();
             } catch (\Throwable) {
                 // Fall through.
             }
@@ -261,7 +282,7 @@ class FetchYoutubeVideoChunkJob implements ShouldQueue
 
         if (is_numeric($timestamp)) {
             try {
-                return Carbon::createFromTimestamp((int) $timestamp);
+                return Carbon::createFromTimestamp((int) $timestamp, 'UTC')->utc();
             } catch (\Throwable) {
                 return null;
             }
@@ -269,7 +290,7 @@ class FetchYoutubeVideoChunkJob implements ShouldQueue
 
         if (is_numeric($fallbackTimestamp)) {
             try {
-                return Carbon::createFromTimestamp((int) $fallbackTimestamp);
+                return Carbon::createFromTimestamp((int) $fallbackTimestamp, 'UTC')->utc();
             } catch (\Throwable) {
                 return null;
             }
@@ -327,24 +348,6 @@ class FetchYoutubeVideoChunkJob implements ShouldQueue
             'driver' => 'single',
             'path' => $directory . '/video_chunk.log',
         ]);
-    }
-
-    private function resolvePythonBinary(): string
-    {
-        $candidates = [
-            base_path('python/venv/Scripts/python.exe'),
-            base_path('python/venv/bin/python'),
-            'python3',
-            'python',
-        ];
-
-        foreach ($candidates as $candidate) {
-            if (str_contains($candidate, base_path('python/venv')) && File::exists($candidate)) {
-                return $candidate;
-            }
-        }
-
-        return 'python';
     }
 
     private function resolvedThreadCount(): int

@@ -5,7 +5,9 @@ namespace App\Jobs;
 use App\Enums\YoutubeChannelStatus;
 use App\Models\YoutubeChannel;
 use App\Support\YoutubeBatchManager;
-use Carbon\Carbon;
+use App\Support\Youtube\ChannelFetchRunner;
+use App\Support\Youtube\VideoChunkPlan;
+use App\Support\Youtube\VideoChunkPlanner;
 use Illuminate\Bus\Batch;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -18,7 +20,7 @@ use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Process;
+use Illuminate\Support\Facades\Storage;
 
 class SyncYoutubeChannelJob implements ShouldQueue
 {
@@ -38,17 +40,21 @@ class SyncYoutubeChannelJob implements ShouldQueue
     public function middleware(): array
     {
         return [
-            (new WithoutOverlapping('youtube-sync:' . $this->channelId))
+            (new WithoutOverlapping('youtube-channel:' . $this->channelId))
                 ->releaseAfter(15)
                 ->expireAfter(7200),
             (new RateLimited('youtube-sync'))->releaseAfter(15),
         ];
     }
 
-    public function handle(): void
+    public function handle(ChannelFetchRunner $channelFetchRunner, VideoChunkPlanner $videoChunkPlanner): void
     {
         $channel = YoutubeChannel::query()->find($this->channelId);
         if ($channel === null) {
+            return;
+        }
+
+        if ($channel->status === YoutubeChannelStatus::Deleting) {
             return;
         }
 
@@ -73,32 +79,11 @@ class SyncYoutubeChannelJob implements ShouldQueue
             'active_video_batch_id' => null,
         ]);
 
-        $channelUrl = 'https://www.youtube.com/' . ltrim($channel->youtube_id, '/');
-        $outputDirectory = base_path('python/yt-dlp_jsons/' . $channel->youtube_id);
-        File::ensureDirectoryExists($outputDirectory);
-
-        $logDirectory = base_path('python/logs/' . $channel->youtube_id);
-        File::ensureDirectoryExists($logDirectory);
-        $pythonLogFile = $logDirectory . '/channel_fetch_' . now()->format('Ymd_His') . '.log';
-
-        $processResult = Process::forever()->run([
-            $this->resolvePythonBinary(),
-            base_path('python/yt-dlp/channel_fetch.py'),
-            '--channel-url',
-            $channelUrl,
-            '--out-dir',
-            $outputDirectory,
-            '--log-file',
-            $pythonLogFile,
-        ]);
-
-        if ($processResult->failed()) {
-            $errorOutput = trim($processResult->errorOutput()) ?: trim($processResult->output());
-            throw new \RuntimeException($errorOutput ?: 'yt-dlp channel fetch failed.');
-        }
-
-        $channelJsonPath = $outputDirectory . '/channel.json';
-        $videosJsonPath = $outputDirectory . '/videos.jsonl';
+        $fetchRun = $channelFetchRunner->run($channel);
+        $channelJsonPath = $fetchRun->channelJsonPath;
+        $videosJsonPath = $fetchRun->videosJsonPath;
+        $outputDirectory = $fetchRun->outputDirectory;
+        $logger = $this->channelLogger($channel->youtube_id);
 
         if (File::exists($channelJsonPath)) {
             $channelData = json_decode(File::get($channelJsonPath), true);
@@ -111,208 +96,52 @@ class SyncYoutubeChannelJob implements ShouldQueue
             }
         }
 
-        if (File::exists($videosJsonPath)) {
-            $lastVideoId = null;
-            $lastVideoDate = null;
-            $seenVideoIds = [];
-            $chunkSize = max(1, (int) config('youtube.video_chunk_size', 50));
-            $chunkDirectory = $outputDirectory . '/video_id_chunks';
-            File::ensureDirectoryExists($chunkDirectory);
-            File::cleanDirectory($chunkDirectory);
-
-            $chunkEntries = [];
-            $chunkCount = 0;
-            $videoCount = 0;
-            $encodingSkippedCount = 0;
-            $jobs = [];
-            $channelId = $channel->id;
-
-            foreach (File::lines($videosJsonPath) as $line) {
-                $line = trim($line);
-                if ($line === '') {
-                    continue;
-                }
-
-                $video = json_decode($line, true);
-                if (! is_array($video) || empty($video['id'])) {
-                    continue;
-                }
-
-                $videoId = (string) $video['id'];
-                if (isset($seenVideoIds[$videoId])) {
-                    continue;
-                }
-
-                $seenVideoIds[$videoId] = true;
-
-                try {
-                    $encodedChunkEntry = json_encode([
-                        'id' => $videoId,
-                        'title' => $video['title'] ?? null,
-                        'upload_date' => $video['upload_date'] ?? null,
-                        'timestamp' => $video['timestamp'] ?? null,
-                        'release_timestamp' => $video['release_timestamp'] ?? null,
-                        'live_status' => $video['live_status'] ?? null,
-                        'thumbnail' => $video['thumbnail'] ?? null,
-                        'thumbnails' => $video['thumbnails'] ?? null,
-                        'description' => $video['description'] ?? null,
-                    ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR);
-                } catch (\JsonException $exception) {
-                    $this->channelLogger($channel->youtube_id)->warning('Failed to encode chunk entry; skipping video.', [
-                        'youtube_id' => $channel->youtube_id,
-                        'youtube_video_id' => $videoId,
-                        'error' => $exception->getMessage(),
-                    ]);
-                    $encodingSkippedCount++;
-
-                    continue;
-                }
-
-                $chunkEntries[] = $encodedChunkEntry;
-                $videoCount++;
-
-                $publishedDate = null;
-                if (! empty($video['upload_date'])) {
-                    try {
-                        $publishedDate = Carbon::createFromFormat('Ymd', $video['upload_date'])->startOfDay();
-                    } catch (\Throwable) {
-                        $publishedDate = null;
-                    }
-                }
-
-                if ($publishedDate instanceof Carbon && ($lastVideoDate === null || $publishedDate->gt($lastVideoDate))) {
-                    $lastVideoDate = $publishedDate;
-                    $lastVideoId = $videoId;
-                }
-
-                if (count($chunkEntries) >= $chunkSize) {
-                    $chunkFile = 'video_id_chunks/chunk_' . str_pad((string) ($chunkCount + 1), 5, '0', STR_PAD_LEFT) . '.jsonl';
-                    File::put($outputDirectory . '/' . $chunkFile, implode(PHP_EOL, $chunkEntries) . PHP_EOL);
-
-                    $jobs[] = new FetchYoutubeVideoChunkJob(
-                        $channelId,
-                        $channel->youtube_id,
-                        $chunkCount,
-                        $chunkSize,
-                        $chunkFile
-                    );
-
-                    $chunkCount++;
-                    $chunkEntries = [];
-                }
-            }
-
-            if ($chunkEntries !== []) {
-                $chunkFile = 'video_id_chunks/chunk_' . str_pad((string) ($chunkCount + 1), 5, '0', STR_PAD_LEFT) . '.jsonl';
-                File::put($outputDirectory . '/' . $chunkFile, implode(PHP_EOL, $chunkEntries) . PHP_EOL);
-
-                $jobs[] = new FetchYoutubeVideoChunkJob(
-                    $channelId,
-                    $channel->youtube_id,
-                    $chunkCount,
-                    $chunkSize,
-                    $chunkFile
-                );
-
-                $chunkCount++;
-            }
-
-            if ($jobs !== []) {
-                $batch = DB::transaction(function () use ($channelId, $jobs, $lastVideoId, $channel): Batch {
-                    $freshChannel = YoutubeChannel::query()->find($channelId);
-                    if ($freshChannel === null) {
-                        throw new \RuntimeException('Channel deleted during sync dispatch.');
-                    }
-
-                    $freshChannel->fill([
-                        'status' => YoutubeChannelStatus::FetchingVideos,
-                    ]);
-
-                    if ($lastVideoId !== null) {
-                        $freshChannel->last_video_id = $lastVideoId;
-                    }
-
-                    $freshChannel->save();
-
-                    $batch = Bus::batch($jobs)
-                        ->name('youtube_video_chunks:' . $channel->youtube_id)
-                        ->allowFailures()
-                        ->finally(function (Batch $batch) use ($channelId): void {
-                            $freshChannel = YoutubeChannel::query()->find($channelId);
-                            if ($freshChannel === null) {
-                                return;
-                            }
-
-                            $shouldBuildFeed = false;
-
-                            DB::transaction(function () use ($freshChannel, $batch, &$shouldBuildFeed): void {
-                                YoutubeBatchManager::setActiveVideoBatchId($freshChannel, null);
-
-                                if ($freshChannel->status === YoutubeChannelStatus::Deleting) {
-                                    return;
-                                }
-
-                                if ($batch->failedJobs > 0) {
-                                    $freshChannel->update([
-                                        'status' => YoutubeChannelStatus::Failed,
-                                        'last_error' => 'One or more video chunks failed after retries.',
-                                    ]);
-
-                                    return;
-                                }
-
-                                $freshChannel->update([
-                                    'status' => YoutubeChannelStatus::BuildingFeed,
-                                ]);
-
-                                $shouldBuildFeed = true;
-                            });
-
-                            if ($shouldBuildFeed) {
-                                BuildYoutubeFeedJob::dispatch($channelId);
-                            }
-                        })
-                        ->dispatch();
-
-                    YoutubeBatchManager::setActiveVideoBatchId($freshChannel, $batch->id);
-
-                    return $batch;
-                });
-
-                $this->channelLogger($channel->youtube_id)->info('Video chunk jobs dispatched.', [
-                    'video_count' => $videoCount,
-                    'chunk_count' => $chunkCount,
-                    'chunk_size' => $chunkSize,
-                    'batch_id' => $batch->id,
-                    'encoding_skipped_count' => $encodingSkippedCount,
-                ]);
-
-                return;
-            }
-
-            if ($lastVideoId !== null) {
-                $channel->update(['last_video_id' => $lastVideoId]);
-            }
-        }
-
-        $shouldBuildFeed = false;
-        DB::transaction(function () use ($channel, &$shouldBuildFeed): void {
-            $freshChannel = YoutubeChannel::query()->find($channel->id);
-            if ($freshChannel === null) {
-                return;
-            }
-
-            if ($freshChannel->status === YoutubeChannelStatus::Deleting) {
-                return;
-            }
-
-            $freshChannel->update([
-                'status' => YoutubeChannelStatus::BuildingFeed,
-                'active_video_batch_id' => null,
+        if (! File::exists($videosJsonPath)) {
+            $logger->error('Channel fetch did not produce videos.jsonl.', [
+                'channel_id' => $channel->id,
+                'youtube_id' => $channel->youtube_id,
+                'expected_path' => $videosJsonPath,
             ]);
 
-            $shouldBuildFeed = true;
-        });
+            throw new \RuntimeException('Channel fetch output missing videos.jsonl.');
+        }
+
+        $plan = $videoChunkPlanner->plan(
+            channel: $channel,
+            videosJsonPath: $videosJsonPath,
+            outputDirectory: $outputDirectory,
+            logger: $logger,
+        );
+
+        if ($plan->hasJobs()) {
+            $batch = $this->dispatchVideoBatch($channel, $plan);
+
+            $logger->info('Video chunk jobs dispatched.', [
+                'queued_video_count' => $plan->queuedVideoCount,
+                'skipped_existing_count' => $plan->skippedExistingCount,
+                'rechecked_upcoming_count' => $plan->recheckedUpcomingCount,
+                'chunk_count' => $plan->chunkCount,
+                'chunk_size' => $plan->chunkSize,
+                'batch_id' => $batch->id,
+                'encoding_skipped_count' => $plan->encodingSkippedCount,
+            ]);
+
+            return;
+        }
+
+        if ($plan->lastVideoId !== null) {
+            $channel->update(['last_video_id' => $plan->lastVideoId]);
+        }
+
+        $logger->info('No videos required detail refresh.', [
+            'queued_video_count' => $plan->queuedVideoCount,
+            'skipped_existing_count' => $plan->skippedExistingCount,
+            'rechecked_upcoming_count' => $plan->recheckedUpcomingCount,
+            'encoding_skipped_count' => $plan->encodingSkippedCount,
+        ]);
+
+        $shouldBuildFeed = ! Storage::disk('public')->exists('feeds/' . $channel->youtube_id . '.xml');
+        $this->finalizeWithoutBatch($channel->id, $shouldBuildFeed);
 
         if ($shouldBuildFeed) {
             BuildYoutubeFeedJob::dispatch($channel->id);
@@ -322,6 +151,140 @@ class SyncYoutubeChannelJob implements ShouldQueue
             'local_database_channel_id' => $channel->id,
             'youtube_id' => $channel->youtube_id,
         ]);
+    }
+
+    private function dispatchVideoBatch(YoutubeChannel $channel, VideoChunkPlan $plan): Batch
+    {
+        $channelId = $channel->id;
+        $lastVideoId = $plan->lastVideoId;
+        $jobs = $plan->jobs;
+
+        DB::beginTransaction();
+        try {
+            $freshChannel = YoutubeChannel::query()->find($channelId);
+            if ($freshChannel === null) {
+                throw new \RuntimeException('Channel deleted during sync dispatch.');
+            }
+
+            $freshChannel->fill([
+                'status' => YoutubeChannelStatus::FetchingVideos,
+            ]);
+
+            if ($lastVideoId !== null) {
+                $freshChannel->last_video_id = $lastVideoId;
+            }
+
+            $freshChannel->save();
+
+            $batch = Bus::batch($jobs)
+                ->name('youtube_video_chunks:' . $channel->youtube_id)
+                ->withOption('channel_id', $channelId)
+                ->allowFailures()
+                ->finally([self::class, 'handleVideoBatchFinally'])
+                ->dispatch();
+
+            YoutubeBatchManager::setActiveVideoBatchId($freshChannel, $batch->id);
+
+            DB::commit();
+            return $batch;
+        } catch (\Throwable $exception) {
+            DB::rollBack();
+            throw $exception;
+        }
+    }
+
+    public static function handleVideoBatchFinally(Batch $batch): void
+    {
+        $rawChannelId = $batch->options['channel_id'] ?? null;
+        $channelId = self::normalizeChannelId($rawChannelId);
+        if ($channelId === null) {
+            return;
+        }
+
+        $freshChannel = YoutubeChannel::query()->find($channelId);
+        if ($freshChannel === null) {
+            return;
+        }
+
+        $shouldBuildFeed = false;
+        DB::beginTransaction();
+        try {
+            YoutubeBatchManager::setActiveVideoBatchId($freshChannel, null);
+
+            if ($freshChannel->status === YoutubeChannelStatus::Deleting) {
+                DB::commit();
+                return;
+            }
+
+            if ($batch->failedJobs > 0) {
+                $freshChannel->update([
+                    'status' => YoutubeChannelStatus::Failed,
+                    'last_error' => 'One or more video chunks failed after retries.',
+                ]);
+
+                DB::commit();
+                return;
+            }
+
+            $freshChannel->update([
+                'status' => YoutubeChannelStatus::BuildingFeed,
+            ]);
+            $shouldBuildFeed = true;
+
+            DB::commit();
+        } catch (\Throwable $exception) {
+            DB::rollBack();
+            throw $exception;
+        }
+
+        if ($shouldBuildFeed) {
+            BuildYoutubeFeedJob::dispatch($channelId);
+        }
+    }
+
+    private function finalizeWithoutBatch(int $channelId, bool $shouldBuildFeed): void
+    {
+        DB::beginTransaction();
+        try {
+            $freshChannel = YoutubeChannel::query()->find($channelId);
+            if ($freshChannel === null || $freshChannel->status === YoutubeChannelStatus::Deleting) {
+                DB::commit();
+                return;
+            }
+
+            if ($shouldBuildFeed) {
+                $freshChannel->update([
+                    'status' => YoutubeChannelStatus::BuildingFeed,
+                    'active_video_batch_id' => null,
+                ]);
+                DB::commit();
+                return;
+            }
+
+            $freshChannel->update([
+                'status' => YoutubeChannelStatus::Idle,
+                'active_video_batch_id' => null,
+                'last_sync_at' => now(),
+                'last_error' => null,
+            ]);
+            DB::commit();
+        } catch (\Throwable $exception) {
+            DB::rollBack();
+            throw $exception;
+        }
+    }
+
+    private static function normalizeChannelId(mixed $rawChannelId): ?int
+    {
+        if (is_int($rawChannelId)) {
+            return $rawChannelId;
+        }
+
+        if (is_string($rawChannelId) && ctype_digit($rawChannelId)) {
+            return (int) $rawChannelId;
+        }
+
+        return null;
     }
 
     public function failed(\Throwable $exception): void
@@ -354,24 +317,6 @@ class SyncYoutubeChannelJob implements ShouldQueue
             'driver' => 'single',
             'path' => $directory . '/sync.log',
         ]);
-    }
-
-    private function resolvePythonBinary(): string
-    {
-        $candidates = [
-            base_path('python/venv/Scripts/python.exe'),
-            base_path('python/venv/bin/python'),
-            'python3',
-            'python',
-        ];
-
-        foreach ($candidates as $candidate) {
-            if (str_contains($candidate, base_path('python/venv')) && File::exists($candidate)) {
-                return $candidate;
-            }
-        }
-
-        return 'python';
     }
 
     private function resolveChannelName(mixed $channelData): ?string

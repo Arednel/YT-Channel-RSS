@@ -2,7 +2,14 @@
 
 ## Development
 
-* 2026-02-06 -- 0.2.0 XML Feed and Fixes
+* 2026-02-08 -- 0.3.0 Background sync
+  * Added background maintenance sync logic
+  * Added periodic maintenance command for background sync
+  * Changed XML share logic to return request without cache
+  * Added shared Python modules and refactored channel/video scripts to reuse common logic
+  * Refactored/Simplified SyncYoutubeChannelJob.php Job
+
+* 2026-02-08 -- 0.2.0 XML Feed and Fixes
   * Added XML Feed Builder
   * Updated Index.blade.php
   * Added "age-restricted" video fetch handling

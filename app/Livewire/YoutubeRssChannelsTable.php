@@ -152,7 +152,7 @@ class YoutubeRssChannelsTable extends Component
         if ($status !== YoutubeChannelStatus::Idle) {
             $statusLabel = $channel->status_label;
             $this->rssLinkErrors[$channel->id] = $this->isFetchingStatus($statusLabel)
-                ? 'RSS is being fetched now. Please wait until status is idle.'
+                ? 'RSS is being created/update now. Please wait until status is idle.'
                 : 'RSS link can be copied only when status is idle.';
             unset($this->rssLinkSuccesses[$channel->id], $this->rssLinkSuccessExpiresAt[$channel->id]);
 

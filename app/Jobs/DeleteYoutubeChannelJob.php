@@ -9,6 +9,7 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
+use Illuminate\Queue\Middleware\WithoutOverlapping;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
@@ -24,6 +25,18 @@ class DeleteYoutubeChannelJob implements ShouldQueue
     public function __construct(
         public int $channelId
     ) {
+    }
+
+    /**
+     * @return array<int, object>
+     */
+    public function middleware(): array
+    {
+        return [
+            (new WithoutOverlapping('youtube-channel:' . $this->channelId))
+                ->releaseAfter(15)
+                ->expireAfter(7200),
+        ];
     }
 
     public function handle(): void

@@ -11,13 +11,7 @@ class YoutubeChannelController extends Controller
 {
     public function index(): View
     {
-        $channels = YoutubeChannel::query()
-            ->orderBy('id')
-            ->get();
-
-        return view('Index', [
-            'channels' => $channels,
-        ]);
+        return view('Index');
     }
 
     public function feed(YoutubeChannel $youtubeChannel): BinaryFileResponse
@@ -29,6 +23,18 @@ class YoutubeChannelController extends Controller
             abort(404, 'Feed XML not found. Sync the channel first.');
         }
 
-        return response()->file($disk->path($relativePath));
+        $response = response()->file($disk->path($relativePath), [
+            'Content-Type' => 'application/atom+xml; charset=UTF-8',
+            'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
+            'Pragma' => 'no-cache',
+            'Expires' => '0',
+            'X-Accel-Expires' => '0',
+        ]);
+
+        // Avoid conditional 304 responses so RSS readers always parse the latest XML.
+        $response->headers->remove('ETag');
+        $response->headers->remove('Last-Modified');
+
+        return $response;
     }
 }
