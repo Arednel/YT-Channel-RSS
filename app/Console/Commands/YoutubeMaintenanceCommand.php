@@ -2,7 +2,6 @@
 
 namespace App\Console\Commands;
 
-use App\Enums\YoutubeChannelStatus;
 use App\Jobs\SyncYoutubeChannelJob;
 use App\Models\YoutubeChannel;
 use App\Support\YoutubeBatchManager;
@@ -24,9 +23,13 @@ class YoutubeMaintenanceCommand extends Command
             return self::SUCCESS;
         }
 
+        $channelId = $this->option('channel-id');
         $channels = YoutubeChannel::query()
-            ->when($this->option('channel-id') !== null, function ($query) {
-                $query->whereKey((int) $this->option('channel-id'));
+            ->when($channelId !== null, function ($query) use ($channelId) {
+                $query->whereKey((int) $channelId);
+            })
+            ->when($channelId === null, function ($query) {
+                $query->eligibleForMaintenance();
             })
             ->orderBy('id')
             ->get();
@@ -46,16 +49,13 @@ class YoutubeMaintenanceCommand extends Command
                 continue;
             }
 
-            if ($this->hasBusyStatus($channel)) {
+            if ($channel->isBusy()) {
                 $skippedBusy++;
                 $this->line("skip {$channel->youtube_id}: status={$channel->status_label}");
                 continue;
             }
 
-            $channel->update([
-                'status' => YoutubeChannelStatus::Queued,
-                'last_error' => null,
-            ]);
+            $channel->markQueuedForSync();
 
             SyncYoutubeChannelJob::dispatch($channel->id);
             $dispatched++;
@@ -83,26 +83,5 @@ class YoutubeMaintenanceCommand extends Command
         $gateKey = 'youtube:maintenance:scheduled_gate';
 
         return ! Cache::add($gateKey, now()->timestamp, now()->addMinutes($intervalMinutes));
-    }
-
-    private function hasBusyStatus(YoutubeChannel $channel): bool
-    {
-        $status = $channel->status;
-        if (! $status instanceof YoutubeChannelStatus) {
-            $status = is_string($status) ? YoutubeChannelStatus::tryFrom($status) : null;
-        }
-
-        if (! $status instanceof YoutubeChannelStatus) {
-            return false;
-        }
-
-        return in_array($status, [
-            YoutubeChannelStatus::Queued,
-            YoutubeChannelStatus::Syncing,
-            YoutubeChannelStatus::FetchingVideoList,
-            YoutubeChannelStatus::FetchingVideos,
-            YoutubeChannelStatus::BuildingFeed,
-            YoutubeChannelStatus::Deleting,
-        ], true);
     }
 }

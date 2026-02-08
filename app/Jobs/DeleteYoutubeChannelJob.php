@@ -2,14 +2,13 @@
 
 namespace App\Jobs;
 
-use App\Enums\YoutubeChannelStatus;
+use App\Jobs\Middleware\PreventOverlappingYoutubeChannel;
 use App\Models\YoutubeChannel;
 use App\Support\YoutubeBatchManager;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
-use Illuminate\Queue\Middleware\WithoutOverlapping;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
@@ -33,9 +32,7 @@ class DeleteYoutubeChannelJob implements ShouldQueue
     public function middleware(): array
     {
         return [
-            (new WithoutOverlapping('youtube-channel:' . $this->channelId))
-                ->releaseAfter(15)
-                ->expireAfter(7200),
+            new PreventOverlappingYoutubeChannel($this->channelId),
         ];
     }
 
@@ -78,10 +75,7 @@ class DeleteYoutubeChannelJob implements ShouldQueue
             return;
         }
 
-        $channel->update([
-            'status' => YoutubeChannelStatus::Failed,
-            'last_error' => $exception->getMessage(),
-        ]);
+        $channel->markFailed($exception->getMessage());
 
         $this->channelLogger($channel->youtube_id)->error('YouTube channel delete failed.', [
             'channel_id' => $channel->id,

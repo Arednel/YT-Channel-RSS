@@ -2,7 +2,6 @@
 
 namespace App\Livewire;
 
-use App\Enums\YoutubeChannelStatus;
 use App\Jobs\DeleteYoutubeChannelJob;
 use App\Jobs\SyncYoutubeChannelJob;
 use App\Models\YoutubeChannel;
@@ -40,12 +39,12 @@ class YoutubeRssChannelsTable extends Component
         $channels = YoutubeChannel::query()
             ->orderBy('id')
             ->get();
-        $statusById = $channels->pluck('status_label', 'id');
+        $channelsById = $channels->keyBy('id');
         $nowTs = now()->getTimestamp();
 
         foreach (array_keys($this->rssLinkErrors) as $channelId) {
-            $statusLabel = $statusById->get($channelId);
-            if (! is_string($statusLabel) || $statusLabel === YoutubeChannelStatus::Idle->value) {
+            $channel = $channelsById->get($channelId);
+            if (! $channel instanceof YoutubeChannel || $channel->isIdle()) {
                 unset($this->rssLinkErrors[$channelId]);
             }
         }
@@ -105,8 +104,8 @@ class YoutubeRssChannelsTable extends Component
 
         $channel = YoutubeChannel::query()->create([
             'youtube_id' => $youtubeId,
-            'status' => YoutubeChannelStatus::Queued,
         ]);
+        $channel->markQueuedForSync();
 
         SyncYoutubeChannelJob::dispatch($channel->id);
 
@@ -131,7 +130,7 @@ class YoutubeRssChannelsTable extends Component
         $channel = YoutubeChannel::query()->find($this->deleteChannelId);
         if ($channel !== null) {
             YoutubeBatchManager::cancelActiveVideoBatch($channel);
-            $channel->update(['status' => YoutubeChannelStatus::Deleting]);
+            $channel->markDeleting();
         }
 
         DeleteYoutubeChannelJob::dispatch($this->deleteChannelId);
@@ -148,10 +147,8 @@ class YoutubeRssChannelsTable extends Component
             return;
         }
 
-        $status = $channel->status;
-        if ($status !== YoutubeChannelStatus::Idle) {
-            $statusLabel = $channel->status_label;
-            $this->rssLinkErrors[$channel->id] = $this->isFetchingStatus($statusLabel)
+        if (! $channel->canCopyRssLink()) {
+            $this->rssLinkErrors[$channel->id] = $channel->isBusy()
                 ? 'RSS is being created/update now. Please wait until status is idle.'
                 : 'RSS link can be copied only when status is idle.';
             unset($this->rssLinkSuccesses[$channel->id], $this->rssLinkSuccessExpiresAt[$channel->id]);
@@ -175,14 +172,4 @@ class YoutubeRssChannelsTable extends Component
         return null;
     }
 
-    private function isFetchingStatus(string $statusLabel): bool
-    {
-        return in_array($statusLabel, [
-            YoutubeChannelStatus::Syncing->value,
-            YoutubeChannelStatus::FetchingVideoList->value,
-            YoutubeChannelStatus::FetchingVideos->value,
-            YoutubeChannelStatus::BuildingFeed->value,
-            YoutubeChannelStatus::Queued->value,
-        ], true);
-    }
 }

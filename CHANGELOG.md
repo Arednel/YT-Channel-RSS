@@ -2,6 +2,13 @@
 
 ## Development
 
+* 2026-02-09 -- 0.4.0 Refactoring and Documentation
+  * Refactored sync orchestration: `SyncYoutubeChannelJob` now delegates to focused actions under `app/Actions/Youtube/`
+  * Centralized channel state transitions in domain methods on `YoutubeChannel`
+  * Added local scopes on `YoutubeChannel` for maintenance targeting
+  * Updated Livewire, jobs, actions, and maintenance command to use centralized domain transitions/scopes/status helpers
+  * Added project documentation set in `docs/`
+
 * 2026-02-08 -- 0.3.0 Background sync
   * Added background maintenance sync logic
   * Added periodic maintenance command for background sync

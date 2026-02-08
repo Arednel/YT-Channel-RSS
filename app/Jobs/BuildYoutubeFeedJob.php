@@ -2,14 +2,13 @@
 
 namespace App\Jobs;
 
-use App\Enums\YoutubeChannelStatus;
+use App\Jobs\Middleware\PreventOverlappingYoutubeFeedBuild;
 use App\Models\YoutubeChannel;
 use App\Support\YoutubeFeedXmlBuilder;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
-use Illuminate\Queue\Middleware\WithoutOverlapping;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
@@ -32,9 +31,7 @@ class BuildYoutubeFeedJob implements ShouldQueue
     public function middleware(): array
     {
         return [
-            (new WithoutOverlapping('youtube-feed-build:' . $this->channelId))
-                ->releaseAfter(15)
-                ->expireAfter(3600),
+            new PreventOverlappingYoutubeFeedBuild($this->channelId),
         ];
     }
 
@@ -45,7 +42,7 @@ class BuildYoutubeFeedJob implements ShouldQueue
             return;
         }
 
-        if ($channel->status === YoutubeChannelStatus::Deleting) {
+        if ($channel->isDeleting()) {
             return;
         }
 
@@ -55,19 +52,13 @@ class BuildYoutubeFeedJob implements ShouldQueue
             'youtube_id' => $channel->youtube_id,
         ]);
 
-        $channel->update([
-            'status' => YoutubeChannelStatus::BuildingFeed,
-        ]);
+        $channel->markBuildingFeed();
 
         $result = $builder->build($channel);
 
         $freshChannel = YoutubeChannel::query()->find($this->channelId);
-        if ($freshChannel !== null && $freshChannel->status !== YoutubeChannelStatus::Deleting) {
-            $freshChannel->update([
-                'status' => YoutubeChannelStatus::Idle,
-                'last_sync_at' => now(),
-                'last_error' => null,
-            ]);
+        if ($freshChannel !== null && ! $freshChannel->isDeleting()) {
+            $freshChannel->markIdle();
         }
 
         $this->channelLogger($channel->youtube_id)->info('XML feed build finished.', [
@@ -85,14 +76,11 @@ class BuildYoutubeFeedJob implements ShouldQueue
             return;
         }
 
-        if ($channel->status === YoutubeChannelStatus::Deleting) {
+        if ($channel->isDeleting()) {
             return;
         }
 
-        $channel->update([
-            'status' => YoutubeChannelStatus::FeedFailed,
-            'last_error' => 'Feed build failed: ' . $exception->getMessage(),
-        ]);
+        $channel->markFeedFailed('Feed build failed: ' . $exception->getMessage());
 
         $this->channelLogger($channel->youtube_id)->error('XML feed build failed.', [
             'channel_id' => $channel->id,

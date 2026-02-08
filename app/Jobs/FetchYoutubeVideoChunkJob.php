@@ -2,6 +2,8 @@
 
 namespace App\Jobs;
 
+use App\Jobs\Middleware\RateLimitYoutubeVideoChunk;
+use App\Jobs\Middleware\SkipIfYoutubeBatchCancelled;
 use App\Models\YoutubeChannel;
 use App\Models\YoutubeVideo;
 use App\Support\PythonBinaryResolver;
@@ -11,8 +13,6 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
-use Illuminate\Queue\Middleware\RateLimited;
-use Illuminate\Queue\Middleware\SkipIfBatchCancelled;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
@@ -43,8 +43,8 @@ class FetchYoutubeVideoChunkJob implements ShouldQueue
     public function middleware(): array
     {
         return [
-            new SkipIfBatchCancelled,
-            (new RateLimited('youtube-video-chunk'))->releaseAfter(15),
+            new SkipIfYoutubeBatchCancelled,
+            new RateLimitYoutubeVideoChunk,
         ];
     }
 
