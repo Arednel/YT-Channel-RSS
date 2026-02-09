@@ -6,21 +6,36 @@ use Illuminate\Support\Facades\File;
 
 class PythonBinaryResolver
 {
-    public static function resolve(): string
+    public static function resolveVenv(): ?string
     {
-        $candidates = [
+        $venvCandidates = [
             base_path('python/venv/Scripts/python.exe'),
             base_path('python/venv/bin/python'),
-            'python3',
-            'python',
         ];
 
-        foreach ($candidates as $candidate) {
-            if (str_contains($candidate, base_path('python/venv')) && File::exists($candidate)) {
+        foreach ($venvCandidates as $candidate) {
+            if (File::exists($candidate)) {
                 return $candidate;
             }
         }
 
-        return 'python';
+        return null;
+    }
+
+    public static function resolveVenvOrFail(): string
+    {
+        $venvPython = self::resolveVenv();
+        if ($venvPython === null) {
+            throw new \RuntimeException(
+                'Python virtual environment interpreter not found. Expected python/venv/Scripts/python.exe or python/venv/bin/python.'
+            );
+        }
+
+        return $venvPython;
+    }
+
+    public static function resolve(): string
+    {
+        return self::resolveVenv() ?? 'python';
     }
 }

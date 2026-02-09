@@ -1,6 +1,6 @@
 <h2 align="center">YouTube RSS</h2>
 
-Laravel 12 + Python `yt-dlp` project for generating per-channel Atom feeds from YouTube.
+Project that creates per-channel RSS feeds from YouTube channel using [yt-dlp](https://github.com/yt-dlp/yt-dlp).
 
 ## Quick Start
 
@@ -33,7 +33,15 @@ Manual maintenance:
 ```bash
 php artisan youtube:maintenance
 php artisan youtube:maintenance --channel-id=1
+php artisan youtube:yt-dlp:update
+php artisan youtube:yt-dlp:update --force
 ```
+
+## yt-dlp Auto Update
+- Weekly update job is scheduled by Laravel scheduler.
+- Additional update job is auto-dispatched when `channel_update` or `video_update` failures exceed threshold without rate-limit errors.
+- Update job always targets `python/venv` yt-dlp and fails if venv Python is missing.
+- Configure behavior with `YOUTUBE_YT_DLP_*` variables in `.env`.
 
 ## Documentation
 - `docs/README.md`

@@ -40,6 +40,11 @@ php artisan schedule:work
 composer dev
 ```
 
+### yt-dlp auto-update behavior
+- Weekly: scheduler dispatches `UpdateYtDlpJob` based on `YOUTUBE_YT_DLP_WEEKLY_UPDATE_DAY` / `YOUTUBE_YT_DLP_WEEKLY_UPDATE_TIME`.
+- Failure-triggered: non-rate-limit failures in `SyncYoutubeChannelJob` (`channel_update`) or `FetchYoutubeVideoChunkJob` (`video_update`) increment counters.
+- When failures are greater than `YOUTUBE_YT_DLP_FAILURE_THRESHOLD`, update job is dispatched (cooldown controlled by `YOUTUBE_YT_DLP_FAILURE_COOLDOWN_MINUTES`).
+
 ## Manual Commands
 
 ### Trigger maintenance for eligible channels
@@ -56,6 +61,21 @@ php artisan youtube:maintenance --channel-id=123
 ### Force scheduled run behavior (bypass interval gate)
 ```bash
 php artisan youtube:maintenance --scheduled --force
+```
+
+### Run yt-dlp update now
+```bash
+php artisan youtube:yt-dlp:update
+```
+
+### Run yt-dlp update now and bypass interval gate
+```bash
+php artisan youtube:yt-dlp:update --force
+```
+
+### Dispatch yt-dlp update to queue
+```bash
+php artisan youtube:yt-dlp:update --queued
 ```
 
 ## Sync Lifecycle (Operational View)
@@ -88,6 +108,8 @@ php artisan youtube:maintenance --scheduled --force
 - Per-channel logs:
   - Laravel logs under `storage/logs/{youtube_id}/`.
   - Python logs under `python/logs/{youtube_id}/`.
+- Global yt-dlp update log:
+  - `storage/logs/yt-dlp-update.log`.
 
 ## Failure Recovery
 

@@ -177,12 +177,24 @@ Key rules:
 ## Scheduler
 - `routes/console.php` schedules:
   - `youtube:maintenance --scheduled` every minute.
+  - `UpdateYtDlpJob('weekly-schedule')` weekly (`YOUTUBE_YT_DLP_WEEKLY_UPDATE_DAY` / `YOUTUBE_YT_DLP_WEEKLY_UPDATE_TIME`) when auto-update is enabled.
 - Command: `YoutubeMaintenanceCommand`
   - Optional `--channel-id`.
   - Optional `--force` to bypass interval gate.
   - Cache gate interval controlled by `YOUTUBE_MAINTENANCE_INTERVAL_MINUTES`.
   - Uses `YoutubeChannel::eligibleForMaintenance()` when no specific channel is provided.
   - Still skips channels with active batch (checked via `YoutubeBatchManager`).
+
+## yt-dlp Update Automation
+- Job: `UpdateYtDlpJob`
+  - Runs `python -m pip install --upgrade yt-dlp[default,deno]`.
+  - Uses queue overlap lock key `yt-dlp-update`.
+  - Stores last successful update timestamp in cache to enforce minimum interval.
+- Failure-triggered update path:
+  - `SyncYoutubeChannelJob` reports `channel_update` failures to `YtDlpAutoUpdateManager`.
+  - `FetchYoutubeVideoChunkJob` reports `video_update` failures to `YtDlpAutoUpdateManager`.
+  - Only non-rate-limit failures are counted.
+  - When failure count exceeds configured threshold, update job is auto-dispatched (with cooldown gate).
 
 ## Python Boundary
 - `python/yt-dlp/channel_fetch.py`

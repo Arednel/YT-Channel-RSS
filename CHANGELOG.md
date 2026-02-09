@@ -2,6 +2,11 @@
 
 ## Development
 
+* 2026-02-09 -- 0.4.2 yt-dlp auto-update
+  * Implemented yt-dlp auto-update logic and job
+  * Added favicon
+  * Changed youtube:maintenance frequency
+  
 * 2026-02-09 -- 0.4.1 Chunk Fetch Stability Fixes
   * Fixed upcoming live-event handling in Python fetch so messages like "This live event will begin in X days" are treated as upcoming metadata, not hard failures
   * Added broader yt-dlp error classification fallback for non-`DownloadError` exceptions in `python/yt-dlp/lib/video_detail.py`

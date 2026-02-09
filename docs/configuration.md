@@ -42,6 +42,22 @@ Mapped in `config/youtube.php`.
 - `YOUTUBE_MAINTENANCE_INTERVAL_MINUTES` (default `30`)
   - Cache gate interval for `youtube:maintenance --scheduled`.
 
+### yt-dlp auto-update
+- `YOUTUBE_YT_DLP_AUTO_UPDATE_ENABLED` (default `true`)
+  - Enables weekly scheduled update and failure-triggered update dispatch.
+- `YOUTUBE_YT_DLP_WEEKLY_UPDATE_DAY` (default `1`)
+  - Weekly day number for scheduler (`0=Sunday` ... `6=Saturday`).
+- `YOUTUBE_YT_DLP_WEEKLY_UPDATE_TIME` (default `05:00`)
+  - Weekly schedule time (24h format).
+- `YOUTUBE_YT_DLP_UPDATE_TIMEOUT_SECONDS` (default `1200`)
+  - Process timeout for `pip install --upgrade`.
+- `YOUTUBE_YT_DLP_UPDATE_MIN_INTERVAL_HOURS` (default `6`)
+  - Minimum time between successful updates.
+- `YOUTUBE_YT_DLP_FAILURE_THRESHOLD` (default `3`)
+  - Auto-update is triggered when a job type exceeds this non-rate-limit failure count.
+- `YOUTUBE_YT_DLP_FAILURE_COOLDOWN_MINUTES` (default `240`)
+  - Cooldown gate before another failure-triggered update can be dispatched.
+
 ### Queue throttle rate limiters
 Registered in `AppServiceProvider`:
 - `YOUTUBE_SYNC_JOBS_PER_MINUTE` (default `0`)
@@ -97,6 +113,7 @@ Resolved by `App\Support\PythonBinaryResolver`:
 
 Recommended setup:
 - Create and use local venv under `python/venv` so the resolver is deterministic.
+- `UpdateYtDlpJob` is strict and updates only venv yt-dlp (`python/venv/*` interpreter); it fails if venv Python is missing.
 
 ## Recommended Production Defaults
 - Keep queue worker running continuously (`queue:work`).

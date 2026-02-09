@@ -7,6 +7,7 @@ use App\Actions\Youtube\RunYoutubeChannelSyncAction;
 use App\Jobs\Middleware\PreventOverlappingYoutubeChannel;
 use App\Jobs\Middleware\RateLimitYoutubeSync;
 use App\Models\YoutubeChannel;
+use App\Support\Youtube\YtDlpAutoUpdateManager;
 use App\Support\YoutubeBatchManager;
 use Illuminate\Bus\Batch;
 use Illuminate\Bus\Queueable;
@@ -40,9 +41,13 @@ class SyncYoutubeChannelJob implements ShouldQueue
         ];
     }
 
-    public function handle(RunYoutubeChannelSyncAction $runYoutubeChannelSync): void
+    public function handle(
+        RunYoutubeChannelSyncAction $runYoutubeChannelSync,
+        YtDlpAutoUpdateManager $ytDlpAutoUpdateManager
+    ): void
     {
         $runYoutubeChannelSync->handle($this->channelId);
+        $ytDlpAutoUpdateManager->recordSuccess(YtDlpAutoUpdateManager::CHANNEL_UPDATE_JOB);
     }
 
     public static function handleVideoBatchFinally(Batch $batch): void
@@ -52,6 +57,11 @@ class SyncYoutubeChannelJob implements ShouldQueue
 
     public function failed(\Throwable $exception): void
     {
+        app(YtDlpAutoUpdateManager::class)->recordFailure(
+            YtDlpAutoUpdateManager::CHANNEL_UPDATE_JOB,
+            $exception->getMessage()
+        );
+
         $channel = YoutubeChannel::query()->find($this->channelId);
         if ($channel === null) {
             return;

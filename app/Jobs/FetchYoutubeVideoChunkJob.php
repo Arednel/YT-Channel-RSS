@@ -7,6 +7,7 @@ use App\Jobs\Middleware\SkipIfYoutubeBatchCancelled;
 use App\Models\YoutubeChannel;
 use App\Models\YoutubeVideo;
 use App\Support\PythonBinaryResolver;
+use App\Support\Youtube\YtDlpAutoUpdateManager;
 use Carbon\Carbon;
 use Illuminate\Bus\Batchable;
 use Illuminate\Bus\Queueable;
@@ -48,7 +49,7 @@ class FetchYoutubeVideoChunkJob implements ShouldQueue
         ];
     }
 
-    public function handle(): void
+    public function handle(YtDlpAutoUpdateManager $ytDlpAutoUpdateManager): void
     {
         $channel = YoutubeChannel::query()->find($this->channelId);
         if ($channel === null || $channel->youtube_id !== $this->youtubeId) {
@@ -213,6 +214,23 @@ class FetchYoutubeVideoChunkJob implements ShouldQueue
             'upserted_count' => count($rows),
             'output_jsonl' => $chunkJsonlPath,
             'thread_count' => $threadCount,
+        ]);
+
+        $ytDlpAutoUpdateManager->recordSuccess(YtDlpAutoUpdateManager::VIDEO_UPDATE_JOB);
+    }
+
+    public function failed(\Throwable $exception): void
+    {
+        app(YtDlpAutoUpdateManager::class)->recordFailure(
+            YtDlpAutoUpdateManager::VIDEO_UPDATE_JOB,
+            $exception->getMessage()
+        );
+
+        $this->channelLogger()->error('Video chunk job failed.', [
+            'channel_id' => $this->channelId,
+            'youtube_id' => $this->youtubeId,
+            'chunk_number' => $this->chunkIndex + 1,
+            'error' => $exception->getMessage(),
         ]);
     }
 
