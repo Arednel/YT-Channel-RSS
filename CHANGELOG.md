@@ -2,6 +2,10 @@
 
 ## Development
 
+* 2026-02-09 -- 0.4.4 Improved error handling
+  * Added handling for "this video is unavailable" error
+  * Added CSS for failed status
+
 * 2026-02-09 -- 0.4.3 Live streams and Modal
   * Ongoing live streams marked as upcoming, so timestamp is updated later
   * Update modal to be in the center under card-header

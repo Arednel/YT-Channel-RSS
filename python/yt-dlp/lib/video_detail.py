@@ -48,8 +48,33 @@ def is_age_restricted_error(message: str) -> bool:
     )
 
 
+def is_video_unavailable_error(message: str) -> bool:
+    lowered = message.lower()
+    return (
+        "video unavailable" in lowered
+        or "this video is unavailable" in lowered
+        or "private video" in lowered
+        or "this video is private" in lowered
+        or "video has been removed" in lowered
+    )
+
+
 def is_restricted_video_error(message: str) -> bool:
-    return is_members_only_error(message) or is_age_restricted_error(message)
+    return (
+        is_members_only_error(message)
+        or is_age_restricted_error(message)
+        or is_video_unavailable_error(message)
+    )
+
+
+def restricted_video_type(message: str) -> str:
+    if is_members_only_error(message):
+        return "members_only"
+    if is_age_restricted_error(message):
+        return "age_restricted"
+    if is_video_unavailable_error(message):
+        return "video_unavailable"
+    return "restricted"
 
 
 def is_upcoming_live_error(message: str) -> bool:
@@ -70,6 +95,32 @@ def classify_video_fetch_error(message: str) -> str:
     if is_upcoming_live_error(message):
         return "upcoming"
     return "failed"
+
+
+def handle_restricted_video(video_id: str, message: str) -> tuple[str, dict | None]:
+    restriction_type = restricted_video_type(message)
+
+    if restriction_type in {"members_only", "age_restricted"}:
+        probe_status, members_info = try_fetch_members_only_metadata(video_id)
+        if probe_status == "ok" and isinstance(members_info, dict):
+            logging.info(
+                "Restricted video metadata extracted. type=%s id=%s upload_date=%s timestamp=%s",
+                restriction_type,
+                video_id,
+                members_info.get("upload_date"),
+                members_info.get("timestamp"),
+            )
+            return "ok", members_info
+        if probe_status == "rate_limited":
+            return "rate_limited", None
+
+    logging.warning(
+        "Restricted video detected. type=%s id=%s error=%s. Skipping retries.",
+        restriction_type,
+        video_id,
+        message,
+    )
+    return "restricted", None
 
 
 def try_fetch_members_only_metadata(video_id: str) -> tuple[str, dict | None]:
@@ -123,24 +174,7 @@ def fetch_video_info(
                 logging.error("Rate limit detected. id=%s error=%s", video_id, message)
                 return "rate_limited", None
             if classification == "restricted":
-                probe_status, members_info = try_fetch_members_only_metadata(video_id)
-                if probe_status == "ok" and isinstance(members_info, dict):
-                    logging.info(
-                        "Restricted video metadata extracted. id=%s upload_date=%s timestamp=%s",
-                        video_id,
-                        members_info.get("upload_date"),
-                        members_info.get("timestamp"),
-                    )
-                    return "ok", members_info
-                if probe_status == "rate_limited":
-                    return "rate_limited", None
-
-                logging.warning(
-                    "Restricted video, skipping retries. id=%s error=%s",
-                    video_id,
-                    message,
-                )
-                return "restricted", None
+                return handle_restricted_video(video_id, message)
             if classification == "upcoming":
                 logging.info(
                     "Upcoming live stream detected, skipping retries. id=%s error=%s",
@@ -175,24 +209,7 @@ def fetch_video_info(
                 return "upcoming", None
 
             if classification == "restricted":
-                probe_status, members_info = try_fetch_members_only_metadata(video_id)
-                if probe_status == "ok" and isinstance(members_info, dict):
-                    logging.info(
-                        "Restricted video metadata extracted. id=%s upload_date=%s timestamp=%s",
-                        video_id,
-                        members_info.get("upload_date"),
-                        members_info.get("timestamp"),
-                    )
-                    return "ok", members_info
-                if probe_status == "rate_limited":
-                    return "rate_limited", None
-
-                logging.warning(
-                    "Restricted video, skipping retries. id=%s error=%s",
-                    video_id,
-                    message,
-                )
-                return "restricted", None
+                return handle_restricted_video(video_id, message)
 
             logging.exception(
                 "Unexpected video fetch exception. id=%s attempt=%s/%s error=%s",
