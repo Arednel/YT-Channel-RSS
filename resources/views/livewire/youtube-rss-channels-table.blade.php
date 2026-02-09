@@ -72,8 +72,8 @@
     </div>
 
     @if ($showModal)
-        <div class="modal-backdrop" wire:click.self="closeModal" wire:keydown.escape.window="closeModal" role="dialog"
-            aria-modal="true">
+        <div class="modal-backdrop table-modal-backdrop" wire:click.self="closeModal"
+            wire:keydown.escape.window="closeModal" role="dialog" aria-modal="true">
             <div class="modal-window">
                 <div class="modal-header">
                     <h3 class="modal-title">Add channel</h3>
@@ -100,8 +100,8 @@
     @endif
 
     @if ($showDeleteModal)
-        <div class="modal-backdrop" wire:click.self="closeDeleteModal" wire:keydown.escape.window="closeDeleteModal"
-            role="dialog" aria-modal="true">
+        <div class="modal-backdrop table-modal-backdrop" wire:click.self="closeDeleteModal"
+            wire:keydown.escape.window="closeDeleteModal" role="dialog" aria-modal="true">
             <div class="modal-window">
                 <div class="modal-header">
                     <h3 class="modal-title">Delete channel</h3>

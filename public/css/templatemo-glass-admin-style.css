@@ -2195,6 +2195,10 @@ select.form-input option {
         flex-direction: column;
         text-align: center;
     }
+
+    .table-card {
+        --table-modal-offset: 120px;
+    }
 }
 
 @media (max-width: 480px) {
@@ -2221,6 +2225,16 @@ select.form-input option {
 
     .social-login {
         flex-direction: column;
+    }
+
+    .table-card {
+        --table-modal-offset: 132px;
+    }
+
+    .table-card .table-modal-backdrop {
+        inset: auto 10px 10px 10px;
+        top: var(--table-modal-offset);
+        padding: 10px;
     }
 }
 
@@ -2271,6 +2285,26 @@ select.form-input option {
     justify-content: center;
     padding: 24px;
     z-index: 2000;
+}
+
+.table-card {
+    --table-modal-offset: 96px;
+}
+
+.table-card .table-modal-backdrop {
+    position: absolute;
+    inset: auto 16px 16px 16px;
+    top: var(--table-modal-offset);
+    align-items: flex-start;
+    justify-content: center;
+    padding: 12px;
+    border-radius: 14px;
+    background: rgba(6, 10, 8, 0.45);
+    z-index: 20;
+}
+
+.table-card .table-modal-backdrop .modal-window {
+    width: min(520px, 100%);
 }
 
 .modal-window {

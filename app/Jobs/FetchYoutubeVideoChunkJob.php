@@ -324,7 +324,7 @@ class FetchYoutubeVideoChunkJob implements ShouldQueue
         }
 
         $liveStatus = $video['live_status'] ?? null;
-        if (is_string($liveStatus) && $liveStatus === 'is_upcoming') {
+        if (is_string($liveStatus) && in_array($liveStatus, ['is_upcoming', 'is_live'], true)) {
             return true;
         }
 

@@ -62,6 +62,10 @@ def compact_video_payload(
     if is_upcoming_value is not None:
         payload["is_upcoming"] = bool(is_upcoming_value)
 
+    live_status = payload.get("live_status")
+    if isinstance(live_status, str) and live_status in {"is_upcoming", "is_live"}:
+        payload["is_upcoming"] = True
+
     thumbnail = ""
     if isinstance(info, dict):
         thumbnail = normalize_thumbnail(

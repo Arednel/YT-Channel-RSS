@@ -2,6 +2,10 @@
 
 ## Development
 
+* 2026-02-09 -- 0.4.3 Live streams and Modal
+  * Ongoing live streams marked as upcoming, so timestamp is updated later
+  * Update modal to be in the center under card-header
+
 * 2026-02-09 -- 0.4.2 yt-dlp auto-update
   * Implemented yt-dlp auto-update logic and job
   * Added favicon
