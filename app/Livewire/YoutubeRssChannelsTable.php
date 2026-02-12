@@ -149,7 +149,7 @@ class YoutubeRssChannelsTable extends Component
 
         if (! $channel->canCopyRssLink()) {
             $this->rssLinkErrors[$channel->id] = $channel->isBusy()
-                ? 'RSS is being created/update now. Please wait until status is idle.'
+                ? 'RSS is being created/updated right now. Please wait until status is idle.'
                 : 'RSS link can be copied only when status is idle.';
             unset($this->rssLinkSuccesses[$channel->id], $this->rssLinkSuccessExpiresAt[$channel->id]);
 
@@ -171,5 +171,4 @@ class YoutubeRssChannelsTable extends Component
 
         return null;
     }
-
 }

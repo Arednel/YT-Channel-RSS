@@ -2,6 +2,9 @@
 
 ## Development
 
+* 2026-02-12 -- 0.4.5 Fix date update
+  * Fixed live video not updating date
+
 * 2026-02-09 -- 0.4.4 Improved error handling
   * Added handling for "this video is unavailable" error
   * Added CSS for failed status

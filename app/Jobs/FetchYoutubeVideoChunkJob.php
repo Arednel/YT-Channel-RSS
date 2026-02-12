@@ -146,12 +146,9 @@ class FetchYoutubeVideoChunkJob implements ShouldQueue
                 continue;
             }
 
+            $isUpcoming = $this->isUpcomingVideo($video);
             $scheduledStartAt = $this->parseDate(null, $video['release_timestamp'] ?? null);
-            $publishedDate = $this->parseDate(
-                $video['upload_date'] ?? null,
-                $video['timestamp'] ?? null,
-                $video['release_timestamp'] ?? null
-            );
+            $publishedDate = $this->resolvePublishedDate($video, $isUpcoming);
             if (! $publishedDate instanceof Carbon) {
                 $this->channelLogger()->warning('Skipping video without published date.', [
                     'chunk_number' => $this->chunkIndex + 1,
@@ -161,7 +158,6 @@ class FetchYoutubeVideoChunkJob implements ShouldQueue
             }
 
             $updatedDate = $this->parseDate($video['modified_date'] ?? null, $video['modified_timestamp'] ?? null) ?? $publishedDate;
-            $isUpcoming = $this->isUpcomingVideo($video);
 
             $thumbnailUrl = $this->resolveThumbnailUrl($video);
             $videoTitle = (string) ($video['title'] ?? '');
@@ -315,6 +311,19 @@ class FetchYoutubeVideoChunkJob implements ShouldQueue
         }
 
         return null;
+    }
+
+    private function resolvePublishedDate(array $video, bool $isUpcoming): ?Carbon
+    {
+        $uploadDate = $video['upload_date'] ?? null;
+        $timestamp = $video['timestamp'] ?? null;
+        $releaseTimestamp = $video['release_timestamp'] ?? null;
+
+        if ($isUpcoming) {
+            return $this->parseDate($uploadDate, $releaseTimestamp, $timestamp);
+        }
+
+        return $this->parseDate($uploadDate, $timestamp, $releaseTimestamp);
     }
 
     private function isUpcomingVideo(array $video): bool
