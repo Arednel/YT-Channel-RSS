@@ -11,6 +11,8 @@ use Livewire\Component;
 
 class YoutubeRssChannelsTable extends Component
 {
+    private YoutubeBatchManager $youtubeBatchManager;
+
     public string $channelUrl = '';
     public ?int $deleteChannelId = null;
     public bool $showModal = false;
@@ -34,14 +36,23 @@ class YoutubeRssChannelsTable extends Component
         ];
     }
 
+    public function boot(YoutubeBatchManager $youtubeBatchManager): void
+    {
+        $this->youtubeBatchManager = $youtubeBatchManager;
+    }
+
     public function render(): View
     {
+        // Load channels once per render and keep deterministic ordering for the table.
         $channels = YoutubeChannel::query()
-            ->orderBy('id')
+            ->orderBy('channel_name')
             ->get();
+
+        // Build quick lookup/time references used by transient UI-message cleanup.
         $channelsById = $channels->keyBy('id');
         $nowTs = now()->getTimestamp();
 
+        // Drop stale error hints when the channel is gone or is back to idle.
         foreach (array_keys($this->rssLinkErrors) as $channelId) {
             $channel = $channelsById->get($channelId);
             if (! $channel instanceof YoutubeChannel || $channel->isIdle()) {
@@ -49,6 +60,7 @@ class YoutubeRssChannelsTable extends Component
             }
         }
 
+        // Expire short-lived success hints after their TTL.
         foreach (array_keys($this->rssLinkSuccesses) as $channelId) {
             $expiresAt = $this->rssLinkSuccessExpiresAt[$channelId] ?? 0;
             if (! is_int($expiresAt) || $expiresAt <= $nowTs) {
@@ -56,6 +68,7 @@ class YoutubeRssChannelsTable extends Component
             }
         }
 
+        // Render the table with the latest channel snapshot.
         return view('livewire.youtube-rss-channels-table', [
             'channels' => $channels,
         ]);
@@ -134,7 +147,7 @@ class YoutubeRssChannelsTable extends Component
 
         $channel = YoutubeChannel::query()->find($this->deleteChannelId);
         if ($channel !== null) {
-            YoutubeBatchManager::cancelActiveVideoBatch($channel);
+            $this->youtubeBatchManager->cancelActiveVideoBatch($channel);
             $channel->markDeleting();
         }
 

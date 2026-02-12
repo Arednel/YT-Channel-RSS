@@ -8,7 +8,6 @@ use App\Jobs\Middleware\PreventOverlappingYoutubeChannel;
 use App\Jobs\Middleware\RateLimitYoutubeSync;
 use App\Models\YoutubeChannel;
 use App\Support\Youtube\YtDlpAutoUpdateManager;
-use App\Support\YoutubeBatchManager;
 use Illuminate\Bus\Batch;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -69,7 +68,7 @@ class SyncYoutubeChannelJob implements ShouldQueue
 
         $channel->markFailed($exception->getMessage());
 
-        YoutubeBatchManager::setActiveVideoBatchId($channel, null);
+        $channel->clearActiveVideoBatchId();
 
         $this->channelLogger($channel->youtube_id)->error('YouTube channel sync failed.', [
             'channel_id' => $channel->id,

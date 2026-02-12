@@ -4,7 +4,6 @@ namespace App\Actions\Youtube;
 
 use App\Jobs\SyncYoutubeChannelJob;
 use App\Models\YoutubeChannel;
-use App\Support\YoutubeBatchManager;
 use App\Support\Youtube\VideoChunkPlan;
 use Illuminate\Bus\Batch;
 use Illuminate\Support\Facades\Bus;
@@ -33,7 +32,7 @@ class DispatchYoutubeVideoChunkBatchAction
                 ->finally([SyncYoutubeChannelJob::class, 'handleVideoBatchFinally'])
                 ->dispatch();
 
-            YoutubeBatchManager::setActiveVideoBatchId($freshChannel, $batch->id);
+            $freshChannel->setActiveVideoBatchId($batch->id);
 
             return $batch;
         });

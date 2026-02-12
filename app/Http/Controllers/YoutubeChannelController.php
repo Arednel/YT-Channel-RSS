@@ -7,7 +7,7 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
-class YoutubeChannelController extends Controller
+class YoutubeChannelController
 {
     public function index(): View
     {

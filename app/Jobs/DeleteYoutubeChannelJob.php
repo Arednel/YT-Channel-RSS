@@ -36,7 +36,7 @@ class DeleteYoutubeChannelJob implements ShouldQueue
         ];
     }
 
-    public function handle(): void
+    public function handle(YoutubeBatchManager $youtubeBatchManager): void
     {
         $channel = YoutubeChannel::query()->find($this->channelId);
         if ($channel === null) {
@@ -49,7 +49,7 @@ class DeleteYoutubeChannelJob implements ShouldQueue
             'youtube_id' => $channel->youtube_id,
         ]);
 
-        $batchCanceled = YoutubeBatchManager::cancelActiveVideoBatch($channel);
+        $batchCanceled = $youtubeBatchManager->cancelActiveVideoBatch($channel);
         if ($batchCanceled) {
             $this->channelLogger($channel->youtube_id)->info('Active video batch canceled before delete.', [
                 'channel_id' => $channel->id,

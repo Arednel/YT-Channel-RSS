@@ -72,6 +72,20 @@ class YoutubeChannel extends Model
         return $this->resolvedStatus()?->canCopyRssLink() ?? false;
     }
 
+    public function setActiveVideoBatchId(?string $batchId): void
+    {
+        self::query()->whereKey($this->id)->update([
+            'active_video_batch_id' => $batchId,
+        ]);
+
+        $this->active_video_batch_id = $batchId;
+    }
+
+    public function clearActiveVideoBatchId(): void
+    {
+        $this->setActiveVideoBatchId(null);
+    }
+
     public function markQueuedForSync(): void
     {
         $this->persistState([

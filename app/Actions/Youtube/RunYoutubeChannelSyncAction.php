@@ -19,6 +19,7 @@ class RunYoutubeChannelSyncAction
         private VideoChunkPlanner $videoChunkPlanner,
         private DispatchYoutubeVideoChunkBatchAction $dispatchVideoChunkBatch,
         private FinalizeYoutubeChannelSyncWithoutBatchAction $finalizeWithoutBatch,
+        private YoutubeBatchManager $youtubeBatchManager,
     ) {
     }
 
@@ -35,7 +36,7 @@ class RunYoutubeChannelSyncAction
 
         $logger = $this->channelLogger($channel->youtube_id);
 
-        if (YoutubeBatchManager::hasActiveVideoBatch($channel)) {
+        if ($this->youtubeBatchManager->hasActiveVideoBatch($channel)) {
             $logger->info('Sync skipped: an active video chunk batch already exists for this channel.', [
                 'local_database_channel_id' => $channel->id,
                 'youtube_id' => $channel->youtube_id,

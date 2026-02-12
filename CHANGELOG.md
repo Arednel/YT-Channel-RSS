@@ -2,6 +2,10 @@
 
 ## Development
 
+* 2026-02-12 -- 0.4.7 YoutubeBatchManager and Livewire
+  * YoutubeBatchManager refactoring
+  * Livewire logic cleanup
+  
 * 2026-02-12 -- 0.4.6 Modal window
   * Only one modal window at the same time can be opened now
   * Modal window can be closed by clicking anywhere

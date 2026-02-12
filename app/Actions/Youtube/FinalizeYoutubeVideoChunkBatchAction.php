@@ -4,7 +4,6 @@ namespace App\Actions\Youtube;
 
 use App\Jobs\BuildYoutubeFeedJob;
 use App\Models\YoutubeChannel;
-use App\Support\YoutubeBatchManager;
 use Illuminate\Bus\Batch;
 use Illuminate\Support\Facades\DB;
 
@@ -24,7 +23,7 @@ class FinalizeYoutubeVideoChunkBatchAction
         }
 
         $shouldBuildFeed = DB::transaction(function () use ($batch, $freshChannel): bool {
-            YoutubeBatchManager::setActiveVideoBatchId($freshChannel, null);
+            $freshChannel->clearActiveVideoBatchId();
 
             if ($freshChannel->isDeleting()) {
                 return false;

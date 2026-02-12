@@ -17,7 +17,7 @@ class YoutubeMaintenanceCommand extends Command
 
     protected $description = 'Dispatch periodic sync jobs for channels that are not currently busy.';
 
-    public function handle(): int
+    public function handle(YoutubeBatchManager $youtubeBatchManager): int
     {
         if ($this->shouldSkipScheduledRunByInterval()) {
             return self::SUCCESS;
@@ -43,7 +43,7 @@ class YoutubeMaintenanceCommand extends Command
         $skippedBusy = 0;
 
         foreach ($channels as $channel) {
-            if (YoutubeBatchManager::hasActiveVideoBatch($channel)) {
+            if ($youtubeBatchManager->hasActiveVideoBatch($channel)) {
                 $skippedBusy++;
                 $this->line("skip {$channel->youtube_id}: active video batch");
                 continue;
