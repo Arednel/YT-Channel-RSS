@@ -2,6 +2,10 @@
 
 ## Development
 
+* 2026-02-12 -- 0.4.6 Modal window
+  * Only one modal window at the same time can be opened now
+  * Modal window can be closed by clicking anywhere
+
 * 2026-02-12 -- 0.4.5 Fix date update
   * Fixed live video not updating date
 

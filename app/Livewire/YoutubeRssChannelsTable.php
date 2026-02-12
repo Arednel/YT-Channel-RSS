@@ -64,6 +64,9 @@ class YoutubeRssChannelsTable extends Component
     public function openModal(): void
     {
         $this->resetValidation();
+        $this->showDeleteModal = false;
+        $this->confirmDelete = false;
+        $this->deleteChannelId = null;
         $this->channelUrl = '';
         $this->showModal = true;
     }
@@ -76,6 +79,8 @@ class YoutubeRssChannelsTable extends Component
     public function openDeleteModal(): void
     {
         $this->resetValidation();
+        $this->showModal = false;
+        $this->channelUrl = '';
         $this->deleteChannelId = null;
         $this->confirmDelete = false;
         $this->showDeleteModal = true;
