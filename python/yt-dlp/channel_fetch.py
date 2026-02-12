@@ -12,6 +12,7 @@ def main():
     parser.add_argument("--channel-url", required=True)
     parser.add_argument("--out-dir", required=True)
     parser.add_argument("--log-file", required=True)
+    parser.add_argument("--entries-per-tab", type=int, default=None)
     args = parser.parse_args()
 
     os.makedirs(args.out_dir, exist_ok=True)
@@ -21,7 +22,10 @@ def main():
     videos_jsonl_path = os.path.join(args.out_dir, "videos.jsonl")
 
     logging.info("Fetching channel metadata: %s", args.channel_url)
-    channel_info, entries = fetch_channel_and_video_entries(args.channel_url)
+    channel_info, entries = fetch_channel_and_video_entries(
+        args.channel_url,
+        entries_per_tab=args.entries_per_tab,
+    )
     if channel_info is None:
         logging.error("Channel metadata fetch returned empty result.")
         return 1

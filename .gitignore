@@ -1,6 +1,7 @@
 *.log
 .DS_Store
 .env
+.env.testing
 .env.backup
 .env.production
 .phpactor.json
@@ -9,6 +10,8 @@
 /.idea
 /.nova
 /.phpunit.cache
+/.pytest_cache
+/python/tests/cache
 /.vscode
 /.zed
 /auth.json

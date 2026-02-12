@@ -20,7 +20,7 @@ class ChannelFetchRunner
         $pythonLogFile = $logDirectory . '/channel_fetch_' . now()->format('Ymd_His') . '.log';
         $pythonTimeoutSeconds = max(60, (int) config('youtube.python_process_timeout_seconds', 600));
 
-        $processResult = Process::timeout($pythonTimeoutSeconds)->run([
+        $command = [
             PythonBinaryResolver::resolve(),
             base_path('python/yt-dlp/channel_fetch.py'),
             '--channel-url',
@@ -29,7 +29,9 @@ class ChannelFetchRunner
             $outputDirectory,
             '--log-file',
             $pythonLogFile,
-        ]);
+        ];
+
+        $processResult = Process::timeout($pythonTimeoutSeconds)->run($command);
 
         if ($processResult->failed()) {
             $errorOutput = trim($processResult->errorOutput()) ?: trim($processResult->output());

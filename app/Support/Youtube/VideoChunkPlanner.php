@@ -55,7 +55,12 @@ class VideoChunkPlanner
             }
 
             $seenVideoIds[$videoId] = true;
-            $publishedDate = $this->parseUploadDate($video['upload_date'] ?? null);
+            if ($lastVideoId === null) {
+                // Ensure we always keep a fallback latest id even if date fields are missing.
+                $lastVideoId = $videoId;
+            }
+
+            $publishedDate = $this->parseEntryDate($video);
             if ($publishedDate instanceof Carbon && ($lastVideoDate === null || $publishedDate->gt($lastVideoDate))) {
                 $lastVideoDate = $publishedDate;
                 $lastVideoId = $videoId;
@@ -209,6 +214,42 @@ class VideoChunkPlanner
 
         $state['chunkCount']++;
         $state['queuedVideoCount'] += count($encodedChunkEntries);
+    }
+
+    private function parseEntryDate(array $video): ?Carbon
+    {
+        $timestamp = $this->parseTimestamp($video['timestamp'] ?? null);
+        if ($timestamp instanceof Carbon) {
+            return $timestamp;
+        }
+
+        $releaseTimestamp = $this->parseTimestamp($video['release_timestamp'] ?? null);
+        if ($releaseTimestamp instanceof Carbon) {
+            return $releaseTimestamp;
+        }
+
+        return $this->parseUploadDate($video['upload_date'] ?? null);
+    }
+
+    private function parseTimestamp(mixed $timestamp): ?Carbon
+    {
+        if (is_int($timestamp) || is_float($timestamp)) {
+            try {
+                return Carbon::createFromTimestamp((int) $timestamp, 'UTC')->utc();
+            } catch (\Throwable) {
+                return null;
+            }
+        }
+
+        if (is_string($timestamp) && ctype_digit($timestamp)) {
+            try {
+                return Carbon::createFromTimestamp((int) $timestamp, 'UTC')->utc();
+            } catch (\Throwable) {
+                return null;
+            }
+        }
+
+        return null;
     }
 
     private function parseUploadDate(mixed $uploadDate): ?Carbon

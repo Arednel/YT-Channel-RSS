@@ -6,3 +6,4 @@ This folder contains code-aligned documentation for the current state of the pro
 - `docs/architecture.md`: system architecture, request flow, data model, queue pipeline.
 - `docs/configuration.md`: environment variables and configuration behavior.
 - `docs/operations.md`: runbook for workers, scheduler, sync lifecycle, logs, recovery.
+- `docs/testing.md`: PHPUnit and pytest test setup and execution.

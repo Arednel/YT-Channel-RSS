@@ -5,6 +5,7 @@
 - Laravel `^12.0`
 - Python 3 (project has been tested with Python 3.10.11)
 - Python package: `yt-dlp[default,deno]` (`python/requirements.txt`)
+- Python test package: `pytest` (`python/requirements-dev.txt`)
 - Database:
   - App runtime defaults to MySQL in `.env.example`
   - Queue driver defaults to `database`
@@ -114,6 +115,11 @@ Resolved by `App\Support\PythonBinaryResolver`:
 Recommended setup:
 - Create and use local venv under `python/venv` so the resolver is deterministic.
 - `UpdateYtDlpJob` is strict and updates only venv yt-dlp (`python/venv/*` interpreter); it fails if venv Python is missing.
+
+## Test Configuration Files
+- `.env.testing.example`: template for test-only DB and basic Laravel test env values (`DB_*`, queue/session/cache defaults).
+- `phpunit.xml`: Laravel/PHPUnit environment and test suite paths.
+- `pytest.ini`: points pytest to `python/tests`.
 
 ## Recommended Production Defaults
 - Keep queue worker running continuously (`queue:work`).

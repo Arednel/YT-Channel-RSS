@@ -2,6 +2,10 @@
 
 ## Development
 
+* 2026-02-12 -- 0.5.0 PHPUnit tests
+  * Added tests for channel fetch
+  * ChannelFetchRunner, VideoChunkPlanner fixes
+
 * 2026-02-12 -- 0.4.7 YoutubeBatchManager and Livewire
   * YoutubeBatchManager refactoring
   * Livewire logic cleanup

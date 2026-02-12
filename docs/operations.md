@@ -23,6 +23,12 @@ source python/venv/bin/activate
 pip install -r python/requirements.txt
 ```
 
+Install Python test dependencies when running pytest:
+
+```bash
+pip install -r python/requirements-dev.txt
+```
+
 ## Day-to-Day Runtime
 
 ### Queue worker
@@ -76,6 +82,18 @@ php artisan youtube:yt-dlp:update --force
 ### Dispatch yt-dlp update to queue
 ```bash
 php artisan youtube:yt-dlp:update --queued
+```
+
+## Test Commands
+
+### Laravel / PHPUnit
+```bash
+php artisan test
+```
+
+### Python / pytest
+```bash
+pytest
 ```
 
 ## Sync Lifecycle (Operational View)
