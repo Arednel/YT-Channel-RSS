@@ -2,8 +2,8 @@
 
 namespace App\Livewire;
 
+use App\Actions\Youtube\DispatchSyncYoutubeChannelJobAction;
 use App\Jobs\DeleteYoutubeChannelJob;
-use App\Jobs\SyncYoutubeChannelJob;
 use App\Models\YoutubeChannel;
 use App\Support\YoutubeBatchManager;
 use Illuminate\Database\Eloquent\Builder;
@@ -19,6 +19,7 @@ class YoutubeRssChannelsTable extends Component
     private const SORTABLE_COLUMNS = ['id', 'channel', 'link', 'rss_link', 'last_updated', 'status'];
 
     private YoutubeBatchManager $youtubeBatchManager;
+    private DispatchSyncYoutubeChannelJobAction $dispatchSyncYoutubeChannelJob;
 
     #[Modelable]
     public string $search = '';
@@ -52,9 +53,13 @@ class YoutubeRssChannelsTable extends Component
         ];
     }
 
-    public function boot(YoutubeBatchManager $youtubeBatchManager): void
+    public function boot(
+        YoutubeBatchManager $youtubeBatchManager,
+        DispatchSyncYoutubeChannelJobAction $dispatchSyncYoutubeChannelJob
+    ): void
     {
         $this->youtubeBatchManager = $youtubeBatchManager;
+        $this->dispatchSyncYoutubeChannelJob = $dispatchSyncYoutubeChannelJob;
     }
 
     public function render(): View
@@ -168,9 +173,7 @@ class YoutubeRssChannelsTable extends Component
         $channel = YoutubeChannel::query()->create([
             'youtube_id' => $youtubeId,
         ]);
-        $channel->markQueuedForSync();
-
-        SyncYoutubeChannelJob::dispatch($channel->id);
+        $this->dispatchSyncYoutubeChannelJob->handle($channel);
 
         $this->showModal = false;
         $this->channelUrl = '';

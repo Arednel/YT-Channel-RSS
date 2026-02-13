@@ -2,24 +2,18 @@
 
 namespace App\Jobs;
 
-use App\Actions\Youtube\FinalizeYoutubeVideoChunkBatchAction;
-use App\Actions\Youtube\RunYoutubeChannelSyncAction;
+use App\Actions\Youtube\HandleYoutubeChannelSyncFailureAction;
 use App\Jobs\Middleware\PreventOverlappingYoutubeChannel;
 use App\Jobs\Middleware\RateLimitYoutubeSync;
-use App\Models\YoutubeChannel;
-use App\Support\Youtube\YtDlpAutoUpdateManager;
-use Illuminate\Bus\Batch;
-use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Queue\InteractsWithQueue;
-use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Facades\Log;
+use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\Bus;
+use Throwable;
 
 class SyncYoutubeChannelJob implements ShouldQueue, ShouldBeUnique
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+    use Queueable;
 
     public int $tries = 3;
     public int $backoff = 60;
@@ -45,39 +39,38 @@ class SyncYoutubeChannelJob implements ShouldQueue, ShouldBeUnique
         ];
     }
 
-    public function handle(
-        RunYoutubeChannelSyncAction $runYoutubeChannelSync,
-        YtDlpAutoUpdateManager $ytDlpAutoUpdateManager
-    ): void {
-        $runYoutubeChannelSync->handle($this->channelId);
-        $ytDlpAutoUpdateManager->recordSuccess(YtDlpAutoUpdateManager::CHANNEL_UPDATE_JOB);
-    }
-
-    public static function handleVideoBatchFinally(Batch $batch): void
+    public function handle(): void
     {
-        app(FinalizeYoutubeVideoChunkBatchAction::class)->handle($batch);
+        $channelId = $this->channelId;
+
+        $chain = Bus::chain([
+            new FetchYoutubeChannelInfoAndVideoListJob($channelId),
+            new DispatchYoutubeVideoSyncPhaseJob($channelId),
+        ])->catch(static function (Throwable $exception) use ($channelId): void {
+            app(HandleYoutubeChannelSyncFailureAction::class)->handle(
+                channelId: $channelId,
+                exception: $exception,
+                logMessage: 'YouTube channel sync chain failed.'
+            );
+        });
+
+        if (is_string($this->connection) && $this->connection !== '') {
+            $chain->onConnection($this->connection);
+        }
+
+        if (is_string($this->queue) && $this->queue !== '') {
+            $chain->onQueue($this->queue);
+        }
+
+        $chain->dispatch();
     }
 
     public function failed(\Throwable $exception): void
     {
-        app(YtDlpAutoUpdateManager::class)->recordFailure(
-            YtDlpAutoUpdateManager::CHANNEL_UPDATE_JOB,
-            $exception->getMessage()
+        app(HandleYoutubeChannelSyncFailureAction::class)->handle(
+            channelId: $this->channelId,
+            exception: $exception,
+            logMessage: 'YouTube channel sync dispatch failed.'
         );
-
-        $channel = YoutubeChannel::query()->find($this->channelId);
-        if ($channel === null) {
-            return;
-        }
-
-        $channel->markFailed($exception->getMessage());
-
-        $channel->clearActiveVideoBatchId();
-
-        Log::channel('youtube')->error('YouTube channel sync failed.', [
-            'channel_id' => $channel->id,
-            'youtube_id' => $channel->youtube_id,
-            'error' => $exception->getMessage(),
-        ]);
     }
 }

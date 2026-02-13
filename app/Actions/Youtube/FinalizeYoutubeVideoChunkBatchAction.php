@@ -9,6 +9,11 @@ use Illuminate\Support\Facades\DB;
 
 class FinalizeYoutubeVideoChunkBatchAction
 {
+    public static function handleBatchFinally(Batch $batch): void
+    {
+        app(self::class)->handle($batch);
+    }
+
     public function handle(Batch $batch): void
     {
         $rawChannelId = $batch->options['channel_id'] ?? null;

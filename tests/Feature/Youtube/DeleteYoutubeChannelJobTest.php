@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Youtube;
 
+use App\Enums\YoutubeChannelStatus;
 use App\Jobs\DeleteYoutubeChannelJob;
 use App\Jobs\FetchYoutubeVideoChunkJob;
 use App\Models\YoutubeChannel;
@@ -61,5 +62,20 @@ class DeleteYoutubeChannelJobTest extends TestCase
         $freshBatch = Bus::findBatch($batch->id);
         $this->assertNotNull($freshBatch);
         $this->assertTrue($freshBatch->cancelled());
+    }
+
+    public function test_failed_marks_channel_failed(): void
+    {
+        $channel = YoutubeChannel::factory()
+            ->idle()
+            ->forYoutubeId('@delete-failed-' . uniqid())
+            ->create();
+
+        $job = new DeleteYoutubeChannelJob($channel->id);
+        $job->failed(new \RuntimeException('delete failed'));
+
+        $channel->refresh();
+        $this->assertTrue($channel->hasStatus(YoutubeChannelStatus::Failed));
+        $this->assertSame('delete failed', $channel->last_error);
     }
 }

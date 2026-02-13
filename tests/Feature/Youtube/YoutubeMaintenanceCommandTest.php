@@ -66,4 +66,45 @@ class YoutubeMaintenanceCommandTest extends TestCase
         $this->assertTrue($activeBatchChannel->hasStatus(YoutubeChannelStatus::Idle));
         $this->assertSame($activeBatchId, $activeBatchChannel->active_video_batch_id);
     }
+
+    public function test_it_skips_busy_channel_when_channel_id_option_targets_it(): void
+    {
+        Queue::fake();
+
+        $busyChannel = YoutubeChannel::factory()
+            ->fetchingVideos()
+            ->forYoutubeId('@maintenance-channel-id-busy-' . uniqid())
+            ->create();
+
+        $this->artisan('youtube:maintenance', [
+            '--channel-id' => $busyChannel->id,
+        ])->assertSuccessful();
+
+        Queue::assertNothingPushed();
+
+        $busyChannel->refresh();
+        $this->assertTrue($busyChannel->hasStatus(YoutubeChannelStatus::FetchingVideos));
+    }
+
+    public function test_it_clears_stale_active_batch_id_and_dispatches_sync(): void
+    {
+        Queue::fake();
+
+        $channel = YoutubeChannel::factory()
+            ->idle()
+            ->forYoutubeId('@maintenance-stale-batch-' . uniqid())
+            ->withActiveBatch((string) Str::orderedUuid())
+            ->create();
+
+        $this->artisan('youtube:maintenance')->assertSuccessful();
+
+        Queue::assertPushedTimes(SyncYoutubeChannelJob::class, 1);
+        Queue::assertPushed(SyncYoutubeChannelJob::class, function (SyncYoutubeChannelJob $job) use ($channel): bool {
+            return $job->channelId === $channel->id;
+        });
+
+        $channel->refresh();
+        $this->assertNull($channel->active_video_batch_id);
+        $this->assertTrue($channel->hasStatus(YoutubeChannelStatus::Queued));
+    }
 }

@@ -10,18 +10,15 @@ use App\Support\PythonBinaryResolver;
 use App\Support\Youtube\YtDlpAutoUpdateManager;
 use Carbon\Carbon;
 use Illuminate\Bus\Batchable;
-use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Queue\InteractsWithQueue;
-use Illuminate\Queue\SerializesModels;
+use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Process;
 
 class FetchYoutubeVideoChunkJob implements ShouldQueue
 {
-    use Batchable, Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+    use Batchable, Queueable;
 
     public int $tries = 3;
     public int $backoff = 60;
@@ -208,6 +205,8 @@ class FetchYoutubeVideoChunkJob implements ShouldQueue
                 ]
             );
         }
+
+        $channel->incrementVideoFetchProgress($this->chunkSize);
 
         Log::channel('youtube')->info('Video chunk processed.', [
             'chunk_number' => $this->chunkIndex + 1,

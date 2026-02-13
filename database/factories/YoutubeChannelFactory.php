@@ -24,6 +24,8 @@ class YoutubeChannelFactory extends Factory
             'last_video_id' => null,
             'last_error' => null,
             'active_video_batch_id' => null,
+            'video_fetch_progress_current' => null,
+            'video_fetch_progress_total' => null,
         ];
     }
 

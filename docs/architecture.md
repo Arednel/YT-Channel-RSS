@@ -11,12 +11,12 @@ Generate and serve Atom feeds for YouTube channels identified by handle (`@chann
 - Laravel 12
 - Livewire (single-page table + modals)
 - Queue: Laravel database queue + batching
-- Python `yt-dlp` wrappers (`python/yt-dlp`)
+- Python 3 (tested with Python 3.10.11) `yt-dlp` wrappers (`python/yt-dlp`)
 
 ## Main HTTP Endpoints
 - `GET /`
   - Renders `resources/views/Index.blade.php`.
-  - Mounts Livewire component `YoutubeRssChannelsTable`.
+  - Mounts Livewire component `YoutubeRssDashboard` (which renders `YoutubeRssChannelsTable`).
 - `GET /feeds/{youtubeChannel:youtube_id}`
   - Serves prebuilt file: `storage/app/public/feeds/{youtube_id}.xml`.
   - Content type: `application/atom+xml; charset=UTF-8`.
@@ -27,8 +27,8 @@ Generate and serve Atom feeds for YouTube channels identified by handle (`@chann
   - Validates `channelUrl`.
   - Extracts first `@handle` from URL.
   - Creates `youtube_channels` row.
-  - Applies domain transition `YoutubeChannel::markQueuedForSync()`.
-  - Dispatches `SyncYoutubeChannelJob`.
+  - Calls `DispatchSyncYoutubeChannelJobAction`.
+  - Action acquires sync unique lock first, then applies `markQueuedForSync()` and dispatches `SyncYoutubeChannelJob`.
 - Delete channel:
   - User picks a channel and confirms.
   - Cancels active batch (if present).
@@ -49,6 +49,8 @@ Generate and serve Atom feeds for YouTube channels identified by handle (`@chann
 - `last_video_id` (nullable)
 - `last_error` (nullable text)
 - `active_video_batch_id` (nullable, indexed)
+- `video_fetch_progress_current` (nullable unsigned int)
+- `video_fetch_progress_total` (nullable unsigned int)
 - timestamps
 
 ### `youtube_videos`
@@ -76,6 +78,7 @@ Key rules:
 - `isBusy()` is true for: `queued`, `syncing`, `fetching video list`, `fetching videos`, `building feed`, `deleting`.
 - RSS copy allowed only for `idle`.
 - Model helpers expose `isBusy()`, `isIdle()`, `isDeleting()`, `canCopyRssLink()`.
+- `status_label` appends progress only for `fetching videos`, in format `fetching videos (x out of x)`.
 - State transitions are applied via model methods:
   - `markQueuedForSync()`
   - `markDeleting()`
@@ -92,41 +95,79 @@ Key rules:
 
 ## Queue + Action Pipeline
 
-### 1) Channel Sync Entry
+### 1) Channel Sync Dispatch
+- Entry points:
+  - Livewire add-channel flow.
+  - `YoutubeMaintenanceCommand` loop.
+- Action: `DispatchSyncYoutubeChannelJobAction`
+- Behavior:
+  - Builds `SyncYoutubeChannelJob`.
+  - Acquires Laravel `UniqueLock` before state mutation.
+  - On lock success: applies `markQueuedForSync()` and dispatches to queue.
+  - On lock miss: returns `false`; channel state is unchanged.
+
+### 2) Channel Sync Job
 - Job: `SyncYoutubeChannelJob`
+- Contracts:
+  - `ShouldQueue`
+  - `ShouldBeUnique` (`uniqueFor=7200`, unique id by channel id)
 - Middleware:
   - `App\Jobs\Middleware\PreventOverlappingYoutubeChannel`
   - `App\Jobs\Middleware\RateLimitYoutubeSync`
   - `WithoutOverlapping('youtube-channel:{id}')`
   - `RateLimited('youtube-sync')`
 - Behavior:
-  - Delegates to `RunYoutubeChannelSyncAction`.
+  - Dispatches a Laravel chain:
+    - `FetchYoutubeChannelInfoAndVideoListJob`
+    - `DispatchYoutubeVideoSyncPhaseJob`
+  - On failure: marks channel failed and clears `active_video_batch_id`.
 
-### 2) Run Sync Orchestration
-- Action: `RunYoutubeChannelSyncAction`
+### 3) Fetch Channel Info + Video List Phase
+- Job: `FetchYoutubeChannelInfoAndVideoListJob`
+- Middleware:
+  - `App\Jobs\Middleware\PreventOverlappingYoutubeChannel`
+  - `App\Jobs\Middleware\RateLimitYoutubeSync`
+  - `WithoutOverlapping('youtube-channel:{id}')`
+  - `RateLimited('youtube-sync')`
+- Action method: `RunYoutubeChannelSyncAction::fetchChannelInfoAndVideoList()`
 - Steps:
   1. Guard: channel exists, not deleting, no active video batch.
   2. Apply `markFetchingVideoList()`.
   3. Run Python channel fetch (`ChannelFetchRunner` -> `channel_fetch.py`).
   4. Read `channel.json` (if present) and update `channel_name`.
   5. Validate `videos.jsonl`.
-  6. Build chunk plan (`VideoChunkPlanner`):
+  6. On success, reset `channel_update` failure counter in `YtDlpAutoUpdateManager`.
+
+### 4) Dispatch Video Phase
+- Job: `DispatchYoutubeVideoSyncPhaseJob`
+- Middleware:
+  - `App\Jobs\Middleware\PreventOverlappingYoutubeChannel`
+  - `App\Jobs\Middleware\RateLimitYoutubeSync`
+  - `WithoutOverlapping('youtube-channel:{id}')`
+  - `RateLimited('youtube-sync')`
+- Action method: `RunYoutubeChannelSyncAction::dispatchVideoPhase()`
+- Steps:
+  1. Guard: channel exists, not deleting, no active video batch.
+  2. Validate `videos.jsonl`.
+  3. Build chunk plan (`VideoChunkPlanner`):
      - Include new videos.
      - Re-include existing videos only if DB says `is_upcoming=true`.
-  7. If plan has jobs:
+  4. If plan has jobs:
      - Dispatch bus batch via `DispatchYoutubeVideoChunkBatchAction`.
      - Set `active_video_batch_id`.
-  8. If no jobs:
+  5. If no jobs:
      - Optionally update `last_video_id`.
      - If feed file missing, apply `markBuildingFeed(true)` and dispatch `BuildYoutubeFeedJob`.
      - Else apply `markIdle()` via `FinalizeYoutubeChannelSyncWithoutBatchAction`.
 
-### 3) Chunk Dispatch
+### 5) Chunk Dispatch
 - Action: `DispatchYoutubeVideoChunkBatchAction`
-- Applies `markFetchingVideos()` and persists `last_video_id` when available.
-- Dispatches batch of `FetchYoutubeVideoChunkJob` with `finally` callback to `SyncYoutubeChannelJob::handleVideoBatchFinally`.
+- Inside a DB transaction:
+  - Reloads channel row and applies `markFetchingVideos($lastVideoId, $queuedVideoCount)`.
+  - Dispatches batch of `FetchYoutubeVideoChunkJob` with `finally` callback to `FinalizeYoutubeVideoChunkBatchAction`.
+  - Persists `active_video_batch_id`.
 
-### 4) Chunk Processing
+### 6) Chunk Processing
 - Job: `FetchYoutubeVideoChunkJob`
 - Middleware:
   - `App\Jobs\Middleware\SkipIfYoutubeBatchCancelled`
@@ -142,11 +183,12 @@ Key rules:
   - `30`: partial failure -> throws runtime exception.
 - Upserts rows to `youtube_videos`.
 - Normalizes timestamps to UTC.
+- Increments channel progress via `incrementVideoFetchProgress($chunkSize)`; counter is clamped to total.
 - Timestamp resolution in `FetchYoutubeVideoChunkJob`:
   - `published_date`: prefers Unix `timestamp`, then `release_timestamp`, then date-only `upload_date` (`Ymd`, midnight UTC).
   - `updated_date`: prefers `modified_timestamp` and falls back to `published_date`.
 
-### 5) Batch Finalization
+### 7) Batch Finalization
 - Action: `FinalizeYoutubeVideoChunkBatchAction` (called from batch `finally`)
 - Behavior:
   - Clear `active_video_batch_id`.
@@ -154,7 +196,7 @@ Key rules:
   - If any failed jobs: apply `markFailed()` with error text.
   - Else apply `markBuildingFeed()` and dispatch `BuildYoutubeFeedJob`.
 
-### 6) Feed Build
+### 8) Feed Build
 - Job: `BuildYoutubeFeedJob`
 - Middleware:
   - `App\Jobs\Middleware\PreventOverlappingYoutubeFeedBuild`
@@ -163,7 +205,7 @@ Key rules:
 - Success: apply `markIdle()`.
 - Failure: apply `markFeedFailed()`.
 
-### 7) Channel Delete
+### 9) Channel Delete
 - Job: `DeleteYoutubeChannelJob`
 - Middleware:
   - `App\Jobs\Middleware\PreventOverlappingYoutubeChannel`
@@ -176,14 +218,17 @@ Key rules:
 
 ## Scheduler
 - `routes/console.php` schedules:
-  - `youtube:maintenance --scheduled` every minute.
+  - `youtube:maintenance --scheduled` every thirty minutes.
   - `UpdateYtDlpJob('weekly-schedule')` weekly (`YOUTUBE_YT_DLP_WEEKLY_UPDATE_DAY` / `YOUTUBE_YT_DLP_WEEKLY_UPDATE_TIME`) when auto-update is enabled.
 - Command: `YoutubeMaintenanceCommand`
   - Optional `--channel-id`.
   - Optional `--force` to bypass interval gate.
   - Cache gate interval controlled by `YOUTUBE_MAINTENANCE_INTERVAL_MINUTES`.
   - Uses `YoutubeChannel::eligibleForMaintenance()` when no specific channel is provided.
-  - Still skips channels with active batch (checked via `YoutubeBatchManager`).
+  - Per channel, skips when:
+    - `YoutubeBatchManager::hasActiveVideoBatch()` is true.
+    - `YoutubeChannel::isBusy()` is true.
+    - dispatch action returns `false` because unique sync lock is already held.
 
 ## yt-dlp Update Automation
 - Job: `UpdateYtDlpJob`
@@ -191,7 +236,8 @@ Key rules:
   - Uses queue overlap lock key `yt-dlp-update`.
   - Stores last successful update timestamp in cache to enforce minimum interval.
 - Failure-triggered update path:
-  - `SyncYoutubeChannelJob` reports `channel_update` failures to `YtDlpAutoUpdateManager`.
+  - `SyncYoutubeChannelJob` centralizes channel-sync failure handling through `HandleYoutubeChannelSyncFailureAction`.
+  - This captures failures from the chained channel phases (`FetchYoutubeChannelInfoAndVideoListJob`, `DispatchYoutubeVideoSyncPhaseJob`) and chain-dispatch failures.
   - `FetchYoutubeVideoChunkJob` reports `video_update` failures to `YtDlpAutoUpdateManager`.
   - Only non-rate-limit failures are counted.
   - When failure count exceeds configured threshold, update job is auto-dispatched (with cooldown gate).

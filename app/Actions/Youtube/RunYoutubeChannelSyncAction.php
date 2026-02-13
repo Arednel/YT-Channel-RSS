@@ -22,15 +22,15 @@ class RunYoutubeChannelSyncAction
     ) {
     }
 
-    public function handle(int $channelId): void
+    public function fetchChannelInfoAndVideoList(int $channelId): bool
     {
         $channel = YoutubeChannel::query()->find($channelId);
         if ($channel === null) {
-            return;
+            return false;
         }
 
         if ($channel->isDeleting()) {
-            return;
+            return false;
         }
 
         if ($this->youtubeBatchManager->hasActiveVideoBatch($channel)) {
@@ -39,10 +39,10 @@ class RunYoutubeChannelSyncAction
                 'youtube_id' => $channel->youtube_id,
             ]);
 
-            return;
+            return false;
         }
 
-        Log::channel('youtube')->info('YouTube channel sync started.', [
+        Log::channel('youtube')->info('YouTube channel info/list fetch started.', [
             'local_database_channel_id' => $channel->id,
             'youtube_id' => $channel->youtube_id,
         ]);
@@ -74,10 +74,50 @@ class RunYoutubeChannelSyncAction
             throw new \RuntimeException('Channel fetch output missing videos.jsonl.');
         }
 
+        Log::channel('youtube')->info('YouTube channel info/list fetch finished.', [
+            'local_database_channel_id' => $channel->id,
+            'youtube_id' => $channel->youtube_id,
+        ]);
+
+        return true;
+    }
+
+    public function dispatchVideoPhase(int $channelId): void
+    {
+        $channel = YoutubeChannel::query()->find($channelId);
+        if ($channel === null) {
+            return;
+        }
+
+        if ($channel->isDeleting()) {
+            return;
+        }
+
+        if ($this->youtubeBatchManager->hasActiveVideoBatch($channel)) {
+            Log::channel('youtube')->info('Video phase skipped: an active video chunk batch already exists for this channel.', [
+                'local_database_channel_id' => $channel->id,
+                'youtube_id' => $channel->youtube_id,
+            ]);
+
+            return;
+        }
+
+        $outputDirectory = base_path('python/yt-dlp_jsons/' . $channel->youtube_id);
+        $videosJsonPath = $outputDirectory . '/videos.jsonl';
+        if (! File::exists($videosJsonPath)) {
+            Log::channel('youtube')->error('Video phase did not find videos.jsonl.', [
+                'channel_id' => $channel->id,
+                'youtube_id' => $channel->youtube_id,
+                'expected_path' => $videosJsonPath,
+            ]);
+
+            throw new \RuntimeException('Video phase input missing videos.jsonl.');
+        }
+
         $plan = $this->videoChunkPlanner->plan(
             channel: $channel,
             videosJsonPath: $videosJsonPath,
-            outputDirectory: $fetchRun->outputDirectory,
+            outputDirectory: $outputDirectory,
         );
 
         if ($plan->hasJobs()) {
@@ -114,7 +154,7 @@ class RunYoutubeChannelSyncAction
             BuildYoutubeFeedJob::dispatch($channel->id);
         }
 
-        Log::channel('youtube')->info('YouTube channel sync finished.', [
+        Log::channel('youtube')->info('YouTube channel video phase finished.', [
             'local_database_channel_id' => $channel->id,
             'youtube_id' => $channel->youtube_id,
         ]);

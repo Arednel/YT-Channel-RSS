@@ -2,6 +2,12 @@
 
 ## Development
 
+* 2026-02-14 -- 0.5.5 Improved Job logic and Progress information
+  * Improved job queue logic and 
+  * Added fetching videos progress indication
+  * Added more test cases
+  * Updated docs
+  
 * 2026-02-14 -- 0.5.4 Python log timezone
   * Changed default python log timezone to UTC, same as Laravel
 

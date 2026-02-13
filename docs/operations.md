@@ -48,7 +48,9 @@ composer dev
 
 ### yt-dlp auto-update behavior
 - Weekly: scheduler dispatches `UpdateYtDlpJob` based on `YOUTUBE_YT_DLP_WEEKLY_UPDATE_DAY` / `YOUTUBE_YT_DLP_WEEKLY_UPDATE_TIME`.
-- Failure-triggered: non-rate-limit failures in `SyncYoutubeChannelJob` (`channel_update`) or `FetchYoutubeVideoChunkJob` (`video_update`) increment counters.
+- Failure-triggered:
+  - Channel-sync failures are centralized by `HandleYoutubeChannelSyncFailureAction` (invoked from `SyncYoutubeChannelJob` chain `catch` and `failed()`), and counted as `channel_update`.
+  - Video-chunk failures from `FetchYoutubeVideoChunkJob` are counted as `video_update`.
 - When failures are greater than `YOUTUBE_YT_DLP_FAILURE_THRESHOLD`, update job is dispatched (cooldown controlled by `YOUTUBE_YT_DLP_FAILURE_COOLDOWN_MINUTES`).
 
 ## Manual Commands
@@ -57,7 +59,11 @@ composer dev
 ```bash
 php artisan youtube:maintenance
 ```
-- This uses `YoutubeChannel::eligibleForMaintenance()` and then skips any channel that still has an active batch id.
+- This uses `YoutubeChannel::eligibleForMaintenance()`.
+- Per channel it skips when:
+  - `YoutubeBatchManager::hasActiveVideoBatch()` reports active batch.
+  - `YoutubeChannel::isBusy()` is true.
+  - `DispatchSyncYoutubeChannelJobAction` cannot acquire sync unique lock.
 
 ### Trigger maintenance for a single channel id
 ```bash
@@ -97,18 +103,23 @@ pytest
 ```
 
 ## Sync Lifecycle (Operational View)
-1. Channel added in UI -> `YoutubeChannel::markQueuedForSync()` (`queued`).
-2. `SyncYoutubeChannelJob` starts -> `YoutubeChannel::markFetchingVideoList()`.
-3. Python channel list fetch runs.
-4. Chunk plan generated:
+1. Channel added in UI or picked by maintenance -> `DispatchSyncYoutubeChannelJobAction` tries unique lock.
+2. On lock success, channel is moved to `queued` and `SyncYoutubeChannelJob` is dispatched.
+3. `SyncYoutubeChannelJob` dispatches ordered chain jobs:
+   - `FetchYoutubeChannelInfoAndVideoListJob`
+   - `DispatchYoutubeVideoSyncPhaseJob`
+4. Fetch phase starts -> `YoutubeChannel::markFetchingVideoList()` and Python channel/list fetch runs.
+5. Video phase builds chunk plan:
    - New videos included.
    - Existing videos included only if currently marked `is_upcoming`.
-5. If chunks exist -> `YoutubeChannel::markFetchingVideos()`, batch runs chunk jobs.
+6. If chunks exist -> `YoutubeChannel::markFetchingVideos()` and batch runs chunk jobs.
+   - Status label is `fetching videos (x out of x)` using `video_fetch_progress_current` / `video_fetch_progress_total`.
+   - Each processed chunk increments current progress (clamped to total).
    - Per-video statuses `restricted` and `upcoming` are persisted as fallback metadata and do not count as hard chunk failures.
-6. Batch finalize:
+7. Batch finalize:
    - Any failed chunks -> `YoutubeChannel::markFailed()`.
    - Otherwise -> `YoutubeChannel::markBuildingFeed()`.
-7. Feed built -> `YoutubeChannel::markIdle()` (`idle`, `last_sync_at` updated).
+8. Feed built -> `YoutubeChannel::markIdle()` (`idle`, `last_sync_at` updated).
 
 ## Deletion Lifecycle
 1. UI applies `YoutubeChannel::markDeleting()` (`deleting`).
@@ -140,6 +151,7 @@ pytest
 ### Stale active batch reference
 - `YoutubeBatchManager::hasActiveVideoBatch()` auto-cleans missing/finished/cancelled batch ids.
 - Running maintenance again is enough in most cases.
+- If a machine restart leaves pending chunk jobs in queue, process queue (`php artisan queue:work`) so batch state can progress and finalize.
 
 ### Rate-limit storms
 - Symptoms:

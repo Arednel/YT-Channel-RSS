@@ -54,11 +54,11 @@ Defined in `config/logging.php`.
   - Enables weekly scheduled update and failure-triggered update dispatch.
 - `YOUTUBE_YT_DLP_WEEKLY_UPDATE_DAY` (default `1`)
   - Weekly day number for scheduler (`0=Sunday` ... `6=Saturday`).
-- `YOUTUBE_YT_DLP_WEEKLY_UPDATE_TIME` (default `05:00`)
+- `YOUTUBE_YT_DLP_WEEKLY_UPDATE_TIME` (example env `05:00`, config fallback `03:00`)
   - Weekly schedule time (24h format).
 - `YOUTUBE_YT_DLP_UPDATE_TIMEOUT_SECONDS` (default `1200`)
   - Process timeout for `pip install --upgrade`.
-- `YOUTUBE_YT_DLP_UPDATE_MIN_INTERVAL_HOURS` (default `6`)
+- `YOUTUBE_YT_DLP_UPDATE_MIN_INTERVAL_HOURS` (example env `6`, config fallback `24`)
   - Minimum time between successful updates.
 - `YOUTUBE_YT_DLP_FAILURE_THRESHOLD` (default `3`)
   - Auto-update is triggered when a job type exceeds this non-rate-limit failure count.

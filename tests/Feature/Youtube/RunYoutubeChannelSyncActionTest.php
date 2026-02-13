@@ -40,7 +40,7 @@ class RunYoutubeChannelSyncActionTest extends TestCase
                 ->forYoutubeId($youtubeId)
                 ->create();
 
-            app(RunYoutubeChannelSyncAction::class)->handle($channel->id);
+            $this->runSyncActionWorkflow($channel->id);
 
             $channel->refresh();
 
@@ -141,7 +141,7 @@ class RunYoutubeChannelSyncActionTest extends TestCase
                 ];
             });
 
-            app(RunYoutubeChannelSyncAction::class)->handle($channel->id);
+            $this->runSyncActionWorkflow($channel->id);
 
             $channel->refresh();
             $this->assertTrue($channel->hasStatus(YoutubeChannelStatus::FetchingVideos));
@@ -238,7 +238,7 @@ class RunYoutubeChannelSyncActionTest extends TestCase
                 ];
             });
 
-            app(RunYoutubeChannelSyncAction::class)->handle($channel->id);
+            $this->runSyncActionWorkflow($channel->id);
             $this->drainQueueUntilEmpty();
 
             $channel->refresh();
@@ -247,7 +247,7 @@ class RunYoutubeChannelSyncActionTest extends TestCase
             $this->assertSame(3, DB::table('youtube_videos')->distinct('youtube_video_id')->count('youtube_video_id'));
             $this->assertSame('idem-video-003', $channel->last_video_id);
 
-            app(RunYoutubeChannelSyncAction::class)->handle($channel->id);
+            $this->runSyncActionWorkflow($channel->id);
             $this->drainQueueUntilEmpty();
 
             $channel->refresh();
@@ -281,6 +281,16 @@ class RunYoutubeChannelSyncActionTest extends TestCase
         $normalized = ltrim((string) $withoutDomain, '/');
 
         return $normalized !== '' ? $normalized : null;
+    }
+
+    private function runSyncActionWorkflow(int $channelId): void
+    {
+        $action = app(RunYoutubeChannelSyncAction::class);
+        if (! $action->fetchChannelInfoAndVideoList($channelId)) {
+            return;
+        }
+
+        $action->dispatchVideoPhase($channelId);
     }
 
     private function networkTestsEnabled(): bool

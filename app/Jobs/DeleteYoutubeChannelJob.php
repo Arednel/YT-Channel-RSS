@@ -5,18 +5,15 @@ namespace App\Jobs;
 use App\Jobs\Middleware\PreventOverlappingYoutubeChannel;
 use App\Models\YoutubeChannel;
 use App\Support\YoutubeBatchManager;
-use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Queue\InteractsWithQueue;
-use Illuminate\Queue\SerializesModels;
+use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
 class DeleteYoutubeChannelJob implements ShouldQueue
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+    use Queueable;
 
     public int $tries = 3;
     public int $backoff = 60;

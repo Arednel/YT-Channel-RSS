@@ -5,16 +5,13 @@ namespace App\Jobs;
 use App\Jobs\Middleware\PreventOverlappingYoutubeFeedBuild;
 use App\Models\YoutubeChannel;
 use App\Support\YoutubeFeedXmlBuilder;
-use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Queue\InteractsWithQueue;
-use Illuminate\Queue\SerializesModels;
+use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
 
 class BuildYoutubeFeedJob implements ShouldQueue
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+    use Queueable;
 
     public int $tries = 3;
     public int $backoff = 60;

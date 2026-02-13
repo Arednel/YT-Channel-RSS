@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Feature\Youtube;
+namespace Tests\Unit\Youtube;
 
 use App\Jobs\UpdateYtDlpJob;
 use App\Support\Youtube\YtDlpAutoUpdateManager;

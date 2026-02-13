@@ -2,7 +2,7 @@
 
 namespace App\Console\Commands;
 
-use App\Jobs\SyncYoutubeChannelJob;
+use App\Actions\Youtube\DispatchSyncYoutubeChannelJobAction;
 use App\Models\YoutubeChannel;
 use App\Support\YoutubeBatchManager;
 use Illuminate\Console\Command;
@@ -17,8 +17,10 @@ class YoutubeMaintenanceCommand extends Command
 
     protected $description = 'Dispatch periodic sync jobs for channels that are not currently busy.';
 
-    public function handle(YoutubeBatchManager $youtubeBatchManager): int
-    {
+    public function handle(
+        YoutubeBatchManager $youtubeBatchManager,
+        DispatchSyncYoutubeChannelJobAction $dispatchSyncYoutubeChannelJob
+    ): int {
         if ($this->shouldSkipScheduledRunByInterval()) {
             return self::SUCCESS;
         }
@@ -41,6 +43,7 @@ class YoutubeMaintenanceCommand extends Command
 
         $dispatched = 0;
         $skippedBusy = 0;
+        $skippedLocked = 0;
 
         foreach ($channels as $channel) {
             if ($youtubeBatchManager->hasActiveVideoBatch($channel)) {
@@ -55,16 +58,20 @@ class YoutubeMaintenanceCommand extends Command
                 continue;
             }
 
-            $channel->markQueuedForSync();
+            if (! $dispatchSyncYoutubeChannelJob->handle($channel)) {
+                $skippedLocked++;
+                $this->line("skip {$channel->youtube_id}: unique sync lock already held");
+                continue;
+            }
 
-            SyncYoutubeChannelJob::dispatch($channel->id);
             $dispatched++;
-
             $this->info("dispatch {$channel->youtube_id}");
         }
 
         $this->newLine();
-        $this->info("Maintenance finished. dispatched={$dispatched} skipped_busy={$skippedBusy}");
+        $this->info(
+            "Maintenance finished. dispatched={$dispatched} skipped_busy={$skippedBusy} skipped_locked={$skippedLocked}"
+        );
 
         return self::SUCCESS;
     }

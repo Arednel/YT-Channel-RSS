@@ -10,6 +10,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Queue;
+use Mockery\MockInterface;
 use Tests\Concerns\FakesYoutubePythonProcesses;
 use Tests\TestCase;
 
@@ -180,6 +181,25 @@ class FetchYoutubeVideoChunkJobTest extends TestCase
         } finally {
             File::deleteDirectory($baseDirectory);
         }
+    }
+
+    public function test_failed_records_video_update_failure(): void
+    {
+        $this->mock(YtDlpAutoUpdateManager::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('recordFailure')
+                ->once()
+                ->with(YtDlpAutoUpdateManager::VIDEO_UPDATE_JOB, 'chunk job failed');
+        });
+
+        $job = new FetchYoutubeVideoChunkJob(
+            channelId: 1,
+            youtubeId: '@chunk-failed-' . uniqid(),
+            chunkIndex: 0,
+            chunkSize: 1,
+            sourceFile: 'video_id_chunks/chunk_00001.jsonl',
+        );
+
+        $job->failed(new \RuntimeException('chunk job failed'));
     }
 
 }

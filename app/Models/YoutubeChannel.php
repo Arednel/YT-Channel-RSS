@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\DB;
 
 class YoutubeChannel extends Model
 {
@@ -27,6 +28,8 @@ class YoutubeChannel extends Model
         'last_video_id',
         'last_error',
         'active_video_batch_id',
+        'video_fetch_progress_current',
+        'video_fetch_progress_total',
     ];
 
     /**
@@ -39,6 +42,8 @@ class YoutubeChannel extends Model
         return [
             'status' => YoutubeChannelStatus::class,
             'last_sync_at' => 'datetime',
+            'video_fetch_progress_current' => 'integer',
+            'video_fetch_progress_total' => 'integer',
         ];
     }
 
@@ -91,6 +96,8 @@ class YoutubeChannel extends Model
         $this->persistState([
             'status' => YoutubeChannelStatus::Queued,
             'last_error' => null,
+            'video_fetch_progress_current' => null,
+            'video_fetch_progress_total' => null,
         ]);
     }
 
@@ -98,6 +105,8 @@ class YoutubeChannel extends Model
     {
         $this->persistState([
             'status' => YoutubeChannelStatus::Deleting,
+            'video_fetch_progress_current' => null,
+            'video_fetch_progress_total' => null,
         ]);
     }
 
@@ -107,26 +116,69 @@ class YoutubeChannel extends Model
             'status' => YoutubeChannelStatus::FetchingVideoList,
             'last_error' => null,
             'active_video_batch_id' => null,
+            'video_fetch_progress_current' => null,
+            'video_fetch_progress_total' => null,
         ]);
     }
 
-    public function markFetchingVideos(?string $lastVideoId = null): void
+    public function markFetchingVideos(?string $lastVideoId = null, ?int $total = null): void
     {
         $attributes = [
             'status' => YoutubeChannelStatus::FetchingVideos,
+            'video_fetch_progress_current' => null,
+            'video_fetch_progress_total' => null,
         ];
 
         if ($lastVideoId !== null) {
             $attributes['last_video_id'] = $lastVideoId;
         }
 
+        if ($total !== null && $total > 0) {
+            $attributes['video_fetch_progress_current'] = 0;
+            $attributes['video_fetch_progress_total'] = $total;
+        }
+
         $this->persistState($attributes);
+    }
+
+    public function incrementVideoFetchProgress(int $incrementBy): void
+    {
+        if ($incrementBy <= 0) {
+            return;
+        }
+
+        DB::transaction(function () use ($incrementBy): void {
+            $fresh = self::query()
+                ->whereKey($this->id)
+                ->lockForUpdate()
+                ->first();
+
+            if (! $fresh instanceof self) {
+                return;
+            }
+
+            $total = $fresh->video_fetch_progress_total;
+            if (! is_int($total) || $total <= 0) {
+                return;
+            }
+
+            $current = $fresh->video_fetch_progress_current;
+            if (! is_int($current) || $current < 0) {
+                $current = 0;
+            }
+
+            $fresh->update([
+                'video_fetch_progress_current' => min($total, $current + $incrementBy),
+            ]);
+        });
     }
 
     public function markBuildingFeed(bool $clearActiveVideoBatch = false): void
     {
         $attributes = [
             'status' => YoutubeChannelStatus::BuildingFeed,
+            'video_fetch_progress_current' => null,
+            'video_fetch_progress_total' => null,
         ];
 
         if ($clearActiveVideoBatch) {
@@ -143,6 +195,8 @@ class YoutubeChannel extends Model
             'active_video_batch_id' => null,
             'last_sync_at' => now(),
             'last_error' => null,
+            'video_fetch_progress_current' => null,
+            'video_fetch_progress_total' => null,
         ]);
     }
 
@@ -151,6 +205,8 @@ class YoutubeChannel extends Model
         $this->persistState([
             'status' => YoutubeChannelStatus::Failed,
             'last_error' => $error,
+            'video_fetch_progress_current' => null,
+            'video_fetch_progress_total' => null,
         ]);
     }
 
@@ -159,6 +215,8 @@ class YoutubeChannel extends Model
         $this->persistState([
             'status' => YoutubeChannelStatus::FeedFailed,
             'last_error' => $error,
+            'video_fetch_progress_current' => null,
+            'video_fetch_progress_total' => null,
         ]);
     }
 
@@ -194,6 +252,14 @@ class YoutubeChannel extends Model
     {
         $status = $this->resolvedStatus();
         if ($status instanceof YoutubeChannelStatus) {
+            $progressLabel = $this->videoFetchProgressLabel();
+            if (
+                $progressLabel !== null
+                && $status === YoutubeChannelStatus::FetchingVideos
+            ) {
+                return $status->value . ' (' . $progressLabel . ')';
+            }
+
             return $status->value;
         }
 
@@ -214,5 +280,22 @@ class YoutubeChannel extends Model
     {
         $this->fill($attributes);
         $this->save();
+    }
+
+    private function videoFetchProgressLabel(): ?string
+    {
+        $total = $this->video_fetch_progress_total;
+        if (! is_int($total) || $total <= 0) {
+            return null;
+        }
+
+        $current = $this->video_fetch_progress_current;
+        if (! is_int($current) || $current < 0) {
+            $current = 0;
+        }
+
+        $current = min($current, $total);
+
+        return $current . ' out of ' . $total;
     }
 }

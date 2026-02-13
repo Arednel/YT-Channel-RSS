@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Youtube;
 
+use App\Enums\YoutubeChannelStatus;
 use App\Jobs\BuildYoutubeFeedJob;
 use App\Models\YoutubeChannel;
 use App\Models\YoutubeVideo;
@@ -70,5 +71,21 @@ class BuildYoutubeFeedJobTest extends TestCase
         } finally {
             File::deleteDirectory(base_path('python/yt-dlp_jsons/' . $youtubeId));
         }
+    }
+
+    public function test_failed_marks_channel_feed_failed(): void
+    {
+        $channel = YoutubeChannel::factory()
+            ->forYoutubeId('@feed-failed-' . uniqid())
+            ->create([
+                'status' => YoutubeChannelStatus::BuildingFeed,
+            ]);
+
+        $job = new BuildYoutubeFeedJob($channel->id);
+        $job->failed(new \RuntimeException('feed write failed'));
+
+        $channel->refresh();
+        $this->assertTrue($channel->hasStatus(YoutubeChannelStatus::FeedFailed));
+        $this->assertSame('Feed build failed: feed write failed', $channel->last_error);
     }
 }
