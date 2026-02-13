@@ -2,6 +2,9 @@
 
 ## Development
 
+* 2026-02-13 -- 0.5.2 Tests fix
+  * Restored Unit "ExampleTest.php" to avoid phpunit.xml error
+
 * 2026-02-13 -- 0.5.1 Fixes, Log refactoring and new Tests
   * Changed default table sort back to "id"
   * Added new "is_video_unavailable_error" possible text to python logic
