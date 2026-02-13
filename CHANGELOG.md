@@ -2,6 +2,9 @@
 
 ## Development
 
+* 2026-02-14 -- 0.5.4 Python log timezone
+  * Changed default python log timezone to UTC, same as Laravel
+
 * 2026-02-13 -- 0.5.3 Table Search and Sort
   * Last updated column now shows time in User local time format
   * Added channels table search

@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import time
 from collections.abc import Iterable
 
 import yt_dlp
@@ -26,10 +27,11 @@ def _channel_label(channel_context: str | None) -> str:
 
 def setup_logging(log_file: str) -> None:
     os.makedirs(os.path.dirname(log_file), exist_ok=True)
+    logging.Formatter.converter = time.gmtime
     logging.basicConfig(
         filename=log_file,
         level=logging.INFO,
-        format="[%(asctime)s] %(message)s",
+        format="[%(asctime)s UTC] %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
     )
 
