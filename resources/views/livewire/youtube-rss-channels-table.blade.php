@@ -13,11 +13,65 @@
         <table class="data-table">
             <thead>
                 <tr>
-                    <th>Channel</th>
-                    <th>Link</th>
-                    <th>RSS Link</th>
-                    <th>Last updated</th>
-                    <th>Status</th>
+                    <th scope="col"
+                        aria-sort="{{ $sortColumn === 'channel' ? ($sortDirection === 'asc' ? 'ascending' : 'descending') : 'none' }}">
+                        <div class="table-sort-header">
+                            <button type="button" class="table-sort-reset-btn" wire:click="resetSort"
+                                title="Reset sort to default (ID ascending)" aria-label="Reset table sort">
+                                Reset Sorting
+                            </button>
+                            <button type="button"
+                                class="table-sort-btn {{ $sortColumn === 'channel' ? 'is-active' : '' }}"
+                                wire:click="sortBy('channel')">
+                                <span>Channel</span>
+                                <span class="table-sort-indicator" aria-hidden="true">
+                                    {{ $sortColumn === 'channel' ? strtoupper($sortDirection) : '--' }}
+                                </span>
+                            </button>
+                        </div>
+                    </th>
+                    <th scope="col"
+                        aria-sort="{{ $sortColumn === 'link' ? ($sortDirection === 'asc' ? 'ascending' : 'descending') : 'none' }}">
+                        <button type="button" class="table-sort-btn {{ $sortColumn === 'link' ? 'is-active' : '' }}"
+                            wire:click="sortBy('link')">
+                            <span>Link</span>
+                            <span class="table-sort-indicator" aria-hidden="true">
+                                {{ $sortColumn === 'link' ? strtoupper($sortDirection) : '--' }}
+                            </span>
+                        </button>
+                    </th>
+                    <th scope="col"
+                        aria-sort="{{ $sortColumn === 'rss_link' ? ($sortDirection === 'asc' ? 'ascending' : 'descending') : 'none' }}">
+                        <button type="button"
+                            class="table-sort-btn {{ $sortColumn === 'rss_link' ? 'is-active' : '' }}"
+                            wire:click="sortBy('rss_link')">
+                            <span>RSS Link</span>
+                            <span class="table-sort-indicator" aria-hidden="true">
+                                {{ $sortColumn === 'rss_link' ? strtoupper($sortDirection) : '--' }}
+                            </span>
+                        </button>
+                    </th>
+                    <th scope="col"
+                        aria-sort="{{ $sortColumn === 'last_updated' ? ($sortDirection === 'asc' ? 'ascending' : 'descending') : 'none' }}">
+                        <button type="button"
+                            class="table-sort-btn {{ $sortColumn === 'last_updated' ? 'is-active' : '' }}"
+                            wire:click="sortBy('last_updated')">
+                            <span>Last updated</span>
+                            <span class="table-sort-indicator" aria-hidden="true">
+                                {{ $sortColumn === 'last_updated' ? strtoupper($sortDirection) : '--' }}
+                            </span>
+                        </button>
+                    </th>
+                    <th scope="col"
+                        aria-sort="{{ $sortColumn === 'status' ? ($sortDirection === 'asc' ? 'ascending' : 'descending') : 'none' }}">
+                        <button type="button" class="table-sort-btn {{ $sortColumn === 'status' ? 'is-active' : '' }}"
+                            wire:click="sortBy('status')">
+                            <span>Status</span>
+                            <span class="table-sort-indicator" aria-hidden="true">
+                                {{ $sortColumn === 'status' ? strtoupper($sortDirection) : '--' }}
+                            </span>
+                        </button>
+                    </th>
                 </tr>
             </thead>
             <tbody>
@@ -54,7 +108,13 @@
                             @endif
                         </td>
                         <td>
-                            <span class="table-amount">{{ $channel->updated_at?->format('Y-m-d H:i') ?? '-' }}</span>
+                            @if ($channel->updated_at_utc_iso && $channel->updated_at_utc_display)
+                                <time class="table-amount" data-local-time datetime="{{ $channel->updated_at_utc_iso }}">
+                                    {{ $channel->updated_at_utc_display }}
+                                </time>
+                            @else
+                                <span class="table-amount">-</span>
+                            @endif
                         </td>
                         <td>
                             <span class="status-badge {{ $channel->status_badge_class }}">

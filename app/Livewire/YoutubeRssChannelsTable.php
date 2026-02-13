@@ -6,12 +6,28 @@ use App\Jobs\DeleteYoutubeChannelJob;
 use App\Jobs\SyncYoutubeChannelJob;
 use App\Models\YoutubeChannel;
 use App\Support\YoutubeBatchManager;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Collection;
+use Livewire\Attributes\Modelable;
+use Livewire\Attributes\Url;
 use Livewire\Component;
 
 class YoutubeRssChannelsTable extends Component
 {
+    /** @var list<string> */
+    private const SORTABLE_COLUMNS = ['id', 'channel', 'link', 'rss_link', 'last_updated', 'status'];
+
     private YoutubeBatchManager $youtubeBatchManager;
+
+    #[Modelable]
+    public string $search = '';
+
+    #[Url(as: 'sort', except: 'id')]
+    public string $sortColumn = 'id';
+
+    #[Url(as: 'dir', except: 'asc')]
+    public string $sortDirection = 'asc';
 
     public string $channelUrl = '';
     public ?int $deleteChannelId = null;
@@ -43,13 +59,23 @@ class YoutubeRssChannelsTable extends Component
 
     public function render(): View
     {
-        // Load channels once per render and keep deterministic ordering for the table.
-        $channels = YoutubeChannel::query()
-            ->orderBy('id')
-            ->get();
+        $this->sortColumn = $this->normalizeSortColumn($this->sortColumn);
+        $this->sortDirection = $this->normalizeSortDirection($this->sortDirection);
+        $search = $this->normalizeSearch($this->search);
+
+        // Build query with server-side filtering and ordering.
+        $query = YoutubeChannel::query();
+        $this->applySearch($query, $search);
+        $this->applySorting($query);
+
+        $channels = $query->get();
+        $channels = $this->addUtcUpdatedAtViewFields($channels);
+        $channelsById = YoutubeChannel::query()
+            ->select(['id', 'status'])
+            ->get()
+            ->keyBy('id');
 
         // Build quick lookup/time references used by transient UI-message cleanup.
-        $channelsById = $channels->keyBy('id');
         $nowTs = now()->getTimestamp();
 
         // Drop stale error hints when the channel is gone or is back to idle.
@@ -72,6 +98,25 @@ class YoutubeRssChannelsTable extends Component
         return view('livewire.youtube-rss-channels-table', [
             'channels' => $channels,
         ]);
+    }
+
+    public function sortBy(string $column): void
+    {
+        $column = $this->normalizeSortColumn($column);
+
+        if ($this->sortColumn === $column) {
+            $this->sortDirection = $this->sortDirection === 'asc' ? 'desc' : 'asc';
+            return;
+        }
+
+        $this->sortColumn = $column;
+        $this->sortDirection = 'asc';
+    }
+
+    public function resetSort(): void
+    {
+        $this->sortColumn = 'id';
+        $this->sortDirection = 'asc';
     }
 
     public function openModal(): void
@@ -188,5 +233,111 @@ class YoutubeRssChannelsTable extends Component
         }
 
         return null;
+    }
+
+    /**
+     * @param Collection<int, YoutubeChannel> $channels
+     * @return Collection<int, YoutubeChannel>
+     */
+    private function addUtcUpdatedAtViewFields(Collection $channels): Collection
+    {
+        $channels->each(function (YoutubeChannel $channel): void {
+            $updatedAtUtc = $channel->updated_at?->copy()->utc();
+
+            $channel->setAttribute(
+                'updated_at_utc_iso',
+                $updatedAtUtc?->format('Y-m-d\\TH:i:s\\Z')
+            );
+
+            $channel->setAttribute(
+                'updated_at_utc_display',
+                $updatedAtUtc?->format('Y-m-d H:i')
+            );
+        });
+
+        return $channels;
+    }
+
+    private function normalizeSearch(string $search): string
+    {
+        return trim(preg_replace('/\s+/', ' ', $search) ?? '');
+    }
+
+    private function applySorting(Builder $query): void
+    {
+        $direction = $this->normalizeSortDirection($this->sortDirection);
+
+        switch ($this->normalizeSortColumn($this->sortColumn)) {
+            case 'channel':
+                $query
+                    ->orderByRaw("CASE WHEN channel_name IS NULL OR channel_name = '' THEN 1 ELSE 0 END")
+                    ->orderBy('channel_name', $direction)
+                    ->orderBy('id');
+                break;
+
+            case 'link':
+            case 'rss_link':
+                $query
+                    ->orderBy('youtube_id', $direction)
+                    ->orderBy('id');
+                break;
+
+            case 'last_updated':
+                $query
+                    ->orderByRaw('CASE WHEN updated_at IS NULL THEN 1 ELSE 0 END')
+                    ->orderBy('updated_at', $direction)
+                    ->orderBy('id');
+                break;
+
+            case 'status':
+                $query
+                    ->orderBy('status', $direction)
+                    ->orderBy('id');
+                break;
+
+            default:
+                $query->orderBy('id', $direction);
+        }
+    }
+
+    private function applySearch(Builder $query, string $search): void
+    {
+        if ($search === '') {
+            return;
+        }
+
+        $like = '%' . $search . '%';
+        $youtubeNeedle = preg_replace('#^https?://(www\.)?youtube\.com/#i', '', $search) ?? $search;
+        $feedNeedle = preg_replace(
+            '#^' . preg_quote(rtrim((string) config('app.url'), '/'), '#') . '/feeds/#i',
+            '',
+            $search
+        ) ?? $search;
+
+        $query->where(function (Builder $searchQuery) use ($like, $youtubeNeedle, $feedNeedle): void {
+            $searchQuery
+                ->where('channel_name', 'like', $like)
+                ->orWhere('youtube_id', 'like', $like)
+                ->orWhere('status', 'like', $like)
+                ->orWhere('updated_at', 'like', $like);
+
+            if ($youtubeNeedle !== '') {
+                $searchQuery->orWhere('youtube_id', 'like', '%' . $youtubeNeedle . '%');
+            }
+
+            if ($feedNeedle !== '') {
+                $searchQuery->orWhere('youtube_id', 'like', '%' . $feedNeedle . '%');
+            }
+        });
+    }
+
+    private function normalizeSortColumn(string $column): string
+    {
+        return in_array($column, self::SORTABLE_COLUMNS, true) ? $column : 'id';
+    }
+
+    private function normalizeSortDirection(string $direction): string
+    {
+        return $direction === 'desc' ? 'desc' : 'asc';
     }
 }

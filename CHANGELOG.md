@@ -2,6 +2,11 @@
 
 ## Development
 
+* 2026-02-13 -- 0.5.3 Table Search and Sort
+  * Last updated column now shows time in User local time format
+  * Added channels table search
+  * Added channels table sort
+
 * 2026-02-13 -- 0.5.2 Tests fix
   * Restored Unit "ExampleTest.php" to avoid phpunit.xml error
 
