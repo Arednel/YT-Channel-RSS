@@ -10,7 +10,6 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\Middleware\WithoutOverlapping;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Process;
 
@@ -57,7 +56,7 @@ class UpdateYtDlpJob implements ShouldQueue
     public function handle(): void
     {
         if (! self::isAutoUpdateEnabled() && ! $this->force) {
-            $this->logger()->info('yt-dlp update skipped: auto update disabled.', [
+            Log::channel('yt_dlp_update')->info('yt-dlp update skipped: auto update disabled.', [
                 'reason' => $this->reason,
             ]);
             return;
@@ -73,7 +72,7 @@ class UpdateYtDlpJob implements ShouldQueue
             );
 
             if ($hoursSinceLastUpdate < $minimumIntervalHours) {
-                $this->logger()->info('yt-dlp update skipped: minimum interval not reached.', [
+                Log::channel('yt_dlp_update')->info('yt-dlp update skipped: minimum interval not reached.', [
                     'reason' => $this->reason,
                     'hours_since_last_update' => $hoursSinceLastUpdate,
                     'minimum_interval_hours' => $minimumIntervalHours,
@@ -105,7 +104,7 @@ class UpdateYtDlpJob implements ShouldQueue
         $afterVersion = $this->resolveYtDlpVersion($python);
         Cache::put($this->lastSuccessCacheKey(), now()->timestamp, now()->addDays(365));
 
-        $this->logger()->info('yt-dlp update completed.', [
+        Log::channel('yt_dlp_update')->info('yt-dlp update completed.', [
             'reason' => $this->reason,
             'python_binary' => $python,
             'version_before' => $beforeVersion,
@@ -116,7 +115,7 @@ class UpdateYtDlpJob implements ShouldQueue
 
     public function failed(\Throwable $exception): void
     {
-        $this->logger()->error('yt-dlp update job failed.', [
+        Log::channel('yt_dlp_update')->error('yt-dlp update job failed.', [
             'reason' => $this->reason,
             'error' => $exception->getMessage(),
         ]);
@@ -137,17 +136,6 @@ class UpdateYtDlpJob implements ShouldQueue
 
         $version = trim($versionResult->output());
         return $version !== '' ? $version : null;
-    }
-
-    private function logger(): \Psr\Log\LoggerInterface
-    {
-        $directory = storage_path('logs');
-        File::ensureDirectoryExists($directory);
-
-        return Log::build([
-            'driver' => 'single',
-            'path' => $directory . '/yt-dlp-update.log',
-        ]);
     }
 
     private function lastSuccessCacheKey(): string

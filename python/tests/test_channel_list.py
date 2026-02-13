@@ -60,7 +60,13 @@ def test_fetch_channel_and_video_entries_deduplicates_entries_across_tabs(monkey
         "https://www.youtube.com/playlist?list=UUMO123": {"entries": [{"id": "v1"}]},
     }
 
-    def fake_extract_flat(url: str, ydl_opts: dict, *, log_optional_tab: bool = False):
+    def fake_extract_flat(
+        url: str,
+        ydl_opts: dict,
+        *,
+        log_optional_tab: bool = False,
+        channel_context: str | None = None,
+    ):
         return responses.get(url)
 
     monkeypatch.setattr(channel_list, "extract_flat", fake_extract_flat)

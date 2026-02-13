@@ -65,6 +65,30 @@ pytest python/tests/test_channel_list.py
     - runs `channel_fetch.py` end-to-end
     - verifies `channel.json` and `videos.jsonl` are produced
     - verifies batch/status behavior for non-empty vs empty fetched video set
+  - `RunYoutubeChannelSyncAction` deterministic queue pipeline path (no network):
+    - uses fixture `channel.json` / `videos.jsonl`
+    - dispatches and executes chunk jobs through the database queue
+    - verifies video upsert, batch finalization, and feed file creation
+  - `RunYoutubeChannelSyncAction` idempotent path:
+    - re-runs sync on same fixture dataset
+    - verifies no duplicate `youtube_videos` rows
+    - verifies stable `last_video_id`
+  - `FetchYoutubeVideoChunkJob`:
+    - upcoming/live to regular transition behavior (`is_upcoming`, `scheduled_start_at`)
+    - restricted-like rows without date fields are skipped while valid rows continue importing
+    - rate-limit exit code (`29`) re-dispatches chunk with lower thread count
+  - `YoutubeMaintenanceCommand`:
+    - dispatches only eligible channels
+    - skips busy/deleting and active-batch channels
+  - `FinalizeYoutubeVideoChunkBatchAction`:
+    - clears active batch pointer and dispatches feed build on successful batch
+  - `BuildYoutubeFeedJob` / `YoutubeFeedXmlBuilder`:
+    - verifies generated XML feed contract (channel identity, namespaces, entries)
+  - `DeleteYoutubeChannelJob`:
+    - validates active batch cancellation and channel/video record deletion
+  - `YtDlpAutoUpdateManager`:
+    - validates failure-threshold trigger for `UpdateYtDlpJob`
+    - ignores rate-limit-like errors for threshold counting
 - Python:
   - `lib/channel_list.py`:
     - channel metadata normalization

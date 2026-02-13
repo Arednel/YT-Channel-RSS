@@ -10,7 +10,6 @@ use App\Support\Youtube\VideoChunkPlanner;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
-use Psr\Log\LoggerInterface;
 
 class RunYoutubeChannelSyncAction
 {
@@ -34,10 +33,8 @@ class RunYoutubeChannelSyncAction
             return;
         }
 
-        $logger = $this->channelLogger($channel->youtube_id);
-
         if ($this->youtubeBatchManager->hasActiveVideoBatch($channel)) {
-            $logger->info('Sync skipped: an active video chunk batch already exists for this channel.', [
+            Log::channel('youtube')->info('Sync skipped: an active video chunk batch already exists for this channel.', [
                 'local_database_channel_id' => $channel->id,
                 'youtube_id' => $channel->youtube_id,
             ]);
@@ -45,8 +42,7 @@ class RunYoutubeChannelSyncAction
             return;
         }
 
-        $logger->info('', []);
-        $logger->info('YouTube channel sync started.', [
+        Log::channel('youtube')->info('YouTube channel sync started.', [
             'local_database_channel_id' => $channel->id,
             'youtube_id' => $channel->youtube_id,
         ]);
@@ -69,7 +65,7 @@ class RunYoutubeChannelSyncAction
         }
 
         if (! File::exists($videosJsonPath)) {
-            $logger->error('Channel fetch did not produce videos.jsonl.', [
+            Log::channel('youtube')->error('Channel fetch did not produce videos.jsonl.', [
                 'channel_id' => $channel->id,
                 'youtube_id' => $channel->youtube_id,
                 'expected_path' => $videosJsonPath,
@@ -82,13 +78,12 @@ class RunYoutubeChannelSyncAction
             channel: $channel,
             videosJsonPath: $videosJsonPath,
             outputDirectory: $fetchRun->outputDirectory,
-            logger: $logger,
         );
 
         if ($plan->hasJobs()) {
             $batch = $this->dispatchVideoChunkBatch->handle($channel, $plan);
 
-            $logger->info('Video chunk jobs dispatched.', [
+            Log::channel('youtube')->info('Video chunk jobs dispatched.', [
                 'queued_video_count' => $plan->queuedVideoCount,
                 'skipped_existing_count' => $plan->skippedExistingCount,
                 'rechecked_upcoming_count' => $plan->recheckedUpcomingCount,
@@ -105,7 +100,7 @@ class RunYoutubeChannelSyncAction
             $channel->update(['last_video_id' => $plan->lastVideoId]);
         }
 
-        $logger->info('No videos required detail refresh.', [
+        Log::channel('youtube')->info('No videos required detail refresh.', [
             'queued_video_count' => $plan->queuedVideoCount,
             'skipped_existing_count' => $plan->skippedExistingCount,
             'rechecked_upcoming_count' => $plan->recheckedUpcomingCount,
@@ -119,20 +114,9 @@ class RunYoutubeChannelSyncAction
             BuildYoutubeFeedJob::dispatch($channel->id);
         }
 
-        $logger->info('YouTube channel sync finished.', [
+        Log::channel('youtube')->info('YouTube channel sync finished.', [
             'local_database_channel_id' => $channel->id,
             'youtube_id' => $channel->youtube_id,
-        ]);
-    }
-
-    private function channelLogger(string $youtubeId): LoggerInterface
-    {
-        $directory = storage_path('logs/' . $youtubeId);
-        File::ensureDirectoryExists($directory);
-
-        return Log::build([
-            'driver' => 'single',
-            'path' => $directory . '/sync.log',
         ]);
     }
 

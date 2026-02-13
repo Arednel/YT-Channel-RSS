@@ -18,6 +18,12 @@ OPTIONAL_TAB_ERROR_SUBSTRINGS = (
 )
 
 
+def _channel_label(channel_context: str | None) -> str:
+    if isinstance(channel_context, str) and channel_context.strip() != "":
+        return channel_context.strip()
+    return "unknown"
+
+
 def setup_logging(log_file: str) -> None:
     os.makedirs(os.path.dirname(log_file), exist_ok=True)
     logging.basicConfig(
@@ -47,8 +53,13 @@ def build_flat_ydl_opts(entries_per_tab: int | None = None) -> dict:
 
 
 def extract_flat(
-    url: str, ydl_opts: dict, *, log_optional_tab: bool = False
+    url: str,
+    ydl_opts: dict,
+    *,
+    log_optional_tab: bool = False,
+    channel_context: str | None = None,
 ) -> dict | None:
+    channel = _channel_label(channel_context)
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         try:
             return ydl.extract_info(url, download=False)
@@ -56,7 +67,12 @@ def extract_flat(
             message = str(exc)
             if is_optional_tab_error(message):
                 if log_optional_tab:
-                    logging.info("Skipping optional tab: %s", message)
+                    logging.info(
+                        "Skipping optional tab. channel=%s url=%s error=%s",
+                        channel,
+                        url,
+                        message,
+                    )
                 return None
             raise
 

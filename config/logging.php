@@ -123,6 +123,27 @@ return [
             'handler' => NullHandler::class,
         ],
 
+        'youtube' => [
+            'driver' => 'single',
+            'path' => storage_path('logs/youtube.log'),
+            'level' => env('LOG_LEVEL', 'debug'),
+            'replace_placeholders' => true,
+        ],
+
+        'yt_dlp_update' => [
+            'driver' => 'single',
+            'path' => storage_path('logs/yt-dlp-update.log'),
+            'level' => env('LOG_LEVEL', 'debug'),
+            'replace_placeholders' => true,
+        ],
+
+        'python' => [
+            'driver' => 'single',
+            'path' => storage_path('logs/python.log'),
+            'level' => env('LOG_LEVEL', 'debug'),
+            'replace_placeholders' => true,
+        ],
+
         'emergency' => [
             'path' => storage_path('logs/laravel.log'),
         ],

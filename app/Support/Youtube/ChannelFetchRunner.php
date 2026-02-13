@@ -15,9 +15,12 @@ class ChannelFetchRunner
         $outputDirectory = base_path('python/yt-dlp_jsons/' . $channel->youtube_id);
         File::ensureDirectoryExists($outputDirectory);
 
-        $logDirectory = base_path('python/logs/' . $channel->youtube_id);
-        File::ensureDirectoryExists($logDirectory);
-        $pythonLogFile = $logDirectory . '/channel_fetch_' . now()->format('Ymd_His') . '.log';
+        $pythonLogFile = (string) config('logging.channels.python.path', storage_path('logs/python.log'));
+        $pythonLogDirectory = dirname($pythonLogFile);
+        if ($pythonLogDirectory !== '' && $pythonLogDirectory !== '.') {
+            File::ensureDirectoryExists($pythonLogDirectory);
+        }
+
         $pythonTimeoutSeconds = max(60, (int) config('youtube.python_process_timeout_seconds', 600));
 
         $command = [

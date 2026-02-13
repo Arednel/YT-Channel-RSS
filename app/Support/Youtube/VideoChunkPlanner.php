@@ -7,15 +7,14 @@ use App\Models\YoutubeChannel;
 use App\Models\YoutubeVideo;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\File;
-use Psr\Log\LoggerInterface;
+use Illuminate\Support\Facades\Log;
 
 class VideoChunkPlanner
 {
     public function plan(
         YoutubeChannel $channel,
         string $videosJsonPath,
-        string $outputDirectory,
-        LoggerInterface $logger
+        string $outputDirectory
     ): VideoChunkPlan {
         $chunkSize = max(1, (int) config('youtube.video_chunk_size', 50));
         $chunkDirectory = $outputDirectory . '/video_id_chunks';
@@ -82,7 +81,6 @@ class VideoChunkPlanner
                 $this->flushPendingChunk(
                     channel: $channel,
                     outputDirectory: $outputDirectory,
-                    logger: $logger,
                     chunkEntries: $chunkEntries,
                     state: $state,
                 );
@@ -92,7 +90,6 @@ class VideoChunkPlanner
         $this->flushPendingChunk(
             channel: $channel,
             outputDirectory: $outputDirectory,
-            logger: $logger,
             chunkEntries: $chunkEntries,
             state: $state,
         );
@@ -123,7 +120,6 @@ class VideoChunkPlanner
     private function flushPendingChunk(
         YoutubeChannel $channel,
         string $outputDirectory,
-        LoggerInterface $logger,
         array &$chunkEntries,
         array &$state
     ): void {
@@ -135,7 +131,6 @@ class VideoChunkPlanner
             channel: $channel,
             entries: $chunkEntries,
             outputDirectory: $outputDirectory,
-            logger: $logger,
             state: $state,
         );
 
@@ -157,7 +152,6 @@ class VideoChunkPlanner
         YoutubeChannel $channel,
         array $entries,
         string $outputDirectory,
-        LoggerInterface $logger,
         array &$state
     ): void {
         if ($entries === []) {
@@ -188,7 +182,7 @@ class VideoChunkPlanner
             try {
                 $encodedChunkEntries[] = json_encode($entry, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR);
             } catch (\JsonException $exception) {
-                $logger->warning('Failed to encode chunk entry; skipping video.', [
+                Log::channel('youtube')->warning('Failed to encode chunk entry; skipping video.', [
                     'youtube_id' => $channel->youtube_id,
                     'youtube_video_id' => $videoId,
                     'error' => $exception->getMessage(),

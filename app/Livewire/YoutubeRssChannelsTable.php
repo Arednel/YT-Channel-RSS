@@ -45,7 +45,7 @@ class YoutubeRssChannelsTable extends Component
     {
         // Load channels once per render and keep deterministic ordering for the table.
         $channels = YoutubeChannel::query()
-            ->orderBy('channel_name')
+            ->orderBy('id')
             ->get();
 
         // Build quick lookup/time references used by transient UI-message cleanup.

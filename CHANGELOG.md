@@ -2,6 +2,14 @@
 
 ## Development
 
+* 2026-02-13 -- 0.5.1 Fixes, Log refactoring and new Tests
+  * Changed default table sort back to "id"
+  * Added new "is_video_unavailable_error" possible text to python logic
+  * Queue logic fix
+  * Logging logic refactor
+  * Added tests
+  * Added YouTube Channel and YouTube Videos factories
+
 * 2026-02-12 -- 0.5.0 PHPUnit tests
   * Added tests for channel fetch
   * ChannelFetchRunner, VideoChunkPlanner fixes

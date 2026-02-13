@@ -43,6 +43,12 @@ Mapped in `config/youtube.php`.
 - `YOUTUBE_MAINTENANCE_INTERVAL_MINUTES` (default `30`)
   - Cache gate interval for `youtube:maintenance --scheduled`.
 
+## Logging Configuration
+Defined in `config/logging.php`.
+
+- `python` channel path is set to `storage/logs/python.log`.
+- This is the shared Python process log target for channel fetch and chunk fetch scripts.
+
 ### yt-dlp auto-update
 - `YOUTUBE_YT_DLP_AUTO_UPDATE_ENABLED` (default `true`)
   - Enables weekly scheduled update and failure-triggered update dispatch.
@@ -97,14 +103,12 @@ Queue middleware wrappers live under `App\Jobs\Middleware` and delegate to Larav
   - `video_chunks/*.jsonl`
 
 ### Logs
-- Laravel logs (per channel):
-  - `storage/logs/{youtube_id}/sync.log`
-  - `storage/logs/{youtube_id}/video_chunk.log`
-  - `storage/logs/{youtube_id}/feed.log`
-  - `storage/logs/{youtube_id}/delete.log`
-- Python logs (per channel):
-  - `python/logs/{youtube_id}/channel_fetch_*.log`
-  - `python/logs/{youtube_id}/chunk_*.log`
+- Laravel workflow log:
+  - `storage/logs/youtube.log`
+- Python fetch log:
+  - `storage/logs/python.log`
+- yt-dlp update log:
+  - `storage/logs/yt-dlp-update.log`
 
 ## Python Binary Resolution
 Resolved by `App\Support\PythonBinaryResolver`:

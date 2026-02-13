@@ -29,8 +29,8 @@
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
-        <env name="YOUTUBE_VIDEO_CHUNK_SIZE" value="5"/>
+        <env name="YOUTUBE_VIDEO_CHUNK_SIZE" value="10"/>
         <env name="YOUTUBE_TESTS_WITH_NETWORK" value="true"/>
-        <env name="YOUTUBE_TEST_REAL_CHANNEL" value="https://www.youtube.com/@patra-sabu"/>
+        <env name="YOUTUBE_TEST_REAL_CHANNEL" value="https://www.youtube.com/@MateusGuimar%C3%A3es"/>
     </php>
 </phpunit>

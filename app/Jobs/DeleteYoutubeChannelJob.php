@@ -43,15 +43,14 @@ class DeleteYoutubeChannelJob implements ShouldQueue
             return;
         }
 
-        $this->channelLogger($channel->youtube_id)->info('', []);
-        $this->channelLogger($channel->youtube_id)->info('YouTube channel delete started.', [
+        Log::channel('youtube')->info('YouTube channel delete started.', [
             'channel_id' => $channel->id,
             'youtube_id' => $channel->youtube_id,
         ]);
 
         $batchCanceled = $youtubeBatchManager->cancelActiveVideoBatch($channel);
         if ($batchCanceled) {
-            $this->channelLogger($channel->youtube_id)->info('Active video batch canceled before delete.', [
+            Log::channel('youtube')->info('Active video batch canceled before delete.', [
                 'channel_id' => $channel->id,
                 'youtube_id' => $channel->youtube_id,
             ]);
@@ -62,7 +61,7 @@ class DeleteYoutubeChannelJob implements ShouldQueue
 
         $channel->delete();
 
-        $this->channelLogger($channel->youtube_id)->info('YouTube channel delete finished.', [
+        Log::channel('youtube')->info('YouTube channel delete finished.', [
             'channel_id' => $channel->id,
             'youtube_id' => $channel->youtube_id,
         ]);
@@ -77,21 +76,10 @@ class DeleteYoutubeChannelJob implements ShouldQueue
 
         $channel->markFailed($exception->getMessage());
 
-        $this->channelLogger($channel->youtube_id)->error('YouTube channel delete failed.', [
+        Log::channel('youtube')->error('YouTube channel delete failed.', [
             'channel_id' => $channel->id,
             'youtube_id' => $channel->youtube_id,
             'error' => $exception->getMessage(),
-        ]);
-    }
-
-    private function channelLogger(string $youtubeId): \Psr\Log\LoggerInterface
-    {
-        $directory = storage_path('logs/' . $youtubeId);
-        File::ensureDirectoryExists($directory);
-
-        return Log::build([
-            'driver' => 'single',
-            'path' => $directory . '/delete.log',
         ]);
     }
 }

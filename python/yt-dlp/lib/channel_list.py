@@ -4,6 +4,12 @@ from datetime import datetime, timezone
 from .common import build_flat_ydl_opts, extract_flat, first_non_empty_string
 
 
+def _channel_label(channel_context: str | None) -> str:
+    if isinstance(channel_context, str) and channel_context.strip() != "":
+        return channel_context.strip()
+    return "unknown"
+
+
 def normalize_channel_info(channel_info: dict) -> dict:
     resolved = dict(channel_info)
 
@@ -112,11 +118,14 @@ def build_tab_urls(channel_url: str, channel_id: str | None) -> list[str]:
 
 
 def fetch_channel_and_video_entries(
-    channel_url: str, entries_per_tab: int | None = None
+    channel_url: str,
+    entries_per_tab: int | None = None,
+    channel_context: str | None = None,
 ) -> tuple[dict | None, list[dict]]:
+    channel = _channel_label(channel_context)
     ydl_opts = build_flat_ydl_opts(entries_per_tab)
 
-    channel_info = extract_flat(channel_url, ydl_opts)
+    channel_info = extract_flat(channel_url, ydl_opts, channel_context=channel)
     if not isinstance(channel_info, dict):
         return None, []
 
@@ -127,8 +136,13 @@ def fetch_channel_and_video_entries(
     seen: set[str] = set()
 
     for tab_url in tabs:
-        logging.info("Fetching tab: %s", tab_url)
-        tab_info = extract_flat(tab_url, ydl_opts, log_optional_tab=True)
+        logging.info("Fetching tab. channel=%s tab=%s", channel, tab_url)
+        tab_info = extract_flat(
+            tab_url,
+            ydl_opts,
+            log_optional_tab=True,
+            channel_context=channel,
+        )
         tab_entries = (tab_info or {}).get("entries") or []
         if not isinstance(tab_entries, list):
             continue

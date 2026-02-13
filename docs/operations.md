@@ -123,11 +123,10 @@ pytest
   - Contains most recent failure detail.
 - Queue backlog:
   - Check `jobs` / `failed_jobs` tables.
-- Per-channel logs:
-  - Laravel logs under `storage/logs/{youtube_id}/`.
-  - Python logs under `python/logs/{youtube_id}/`.
-- Global yt-dlp update log:
-  - `storage/logs/yt-dlp-update.log`.
+- Application logs:
+  - Laravel workflow log: `storage/logs/youtube.log`
+  - Python fetch log: `storage/logs/python.log`
+  - yt-dlp update log: `storage/logs/yt-dlp-update.log`
 
 ## Failure Recovery
 

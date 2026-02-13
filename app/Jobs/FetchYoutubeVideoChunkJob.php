@@ -67,7 +67,7 @@ class FetchYoutubeVideoChunkJob implements ShouldQueue
         $sourceFile = $baseDirectory . '/' . ltrim($this->sourceFile, '/');
         if (! File::exists($sourceFile)) {
             $message = 'Source chunk file missing.';
-            $this->channelLogger()->error($message, [
+            Log::channel('youtube')->error($message, [
                 'chunk_index' => $this->chunkIndex,
                 'chunk_size' => $this->chunkSize,
                 'source' => $sourceFile,
@@ -76,9 +76,12 @@ class FetchYoutubeVideoChunkJob implements ShouldQueue
             throw new \RuntimeException($message . ' Chunk source: ' . $sourceFile);
         }
 
-        $pythonLogDirectory = base_path('python/logs/' . $this->youtubeId);
-        File::ensureDirectoryExists($pythonLogDirectory);
-        $pythonLogFile = $pythonLogDirectory . '/' . $chunkPrefix . '.log';
+        $pythonLogFile = (string) config('logging.channels.python.path', storage_path('logs/python.log'));
+        $pythonLogDirectory = dirname($pythonLogFile);
+        if ($pythonLogDirectory !== '' && $pythonLogDirectory !== '.') {
+            File::ensureDirectoryExists($pythonLogDirectory);
+        }
+
         $threadCount = $this->resolvedThreadCount();
         $pythonTimeoutSeconds = max(60, (int) config('youtube.python_process_timeout_seconds', 600));
 
@@ -101,6 +104,8 @@ class FetchYoutubeVideoChunkJob implements ShouldQueue
             (string) config('youtube.video_retry_delay', 60),
             '--max-workers',
             (string) $threadCount,
+            '--channel-id',
+            $this->youtubeId,
         ]);
 
         if ($processResult->exitCode() === self::RATE_LIMIT_EXIT_CODE) {
@@ -119,7 +124,7 @@ class FetchYoutubeVideoChunkJob implements ShouldQueue
 
         if (! File::exists($chunkJsonlPath)) {
             $message = 'Chunk output missing.';
-            $this->channelLogger()->error($message, [
+            Log::channel('youtube')->error($message, [
                 'chunk_number' => $this->chunkIndex + 1,
                 'expected_output' => $chunkJsonlPath,
             ]);
@@ -150,7 +155,7 @@ class FetchYoutubeVideoChunkJob implements ShouldQueue
             $scheduledStartAt = $this->parseDate(null, $video['release_timestamp'] ?? null);
             $publishedDate = $this->resolvePublishedDate($video, $isUpcoming);
             if (! $publishedDate instanceof Carbon) {
-                $this->channelLogger()->warning('Skipping video without published date.', [
+                Log::channel('youtube')->warning('Skipping video without published date.', [
                     'chunk_number' => $this->chunkIndex + 1,
                     'youtube_video_id' => $youtubeVideoId,
                 ]);
@@ -204,7 +209,7 @@ class FetchYoutubeVideoChunkJob implements ShouldQueue
             );
         }
 
-        $this->channelLogger()->info('Video chunk processed.', [
+        Log::channel('youtube')->info('Video chunk processed.', [
             'chunk_number' => $this->chunkIndex + 1,
             'chunk_size' => $this->chunkSize,
             'upserted_count' => count($rows),
@@ -222,7 +227,7 @@ class FetchYoutubeVideoChunkJob implements ShouldQueue
             $exception->getMessage()
         );
 
-        $this->channelLogger()->error('Video chunk job failed.', [
+        Log::channel('youtube')->error('Video chunk job failed.', [
             'channel_id' => $this->channelId,
             'youtube_id' => $this->youtubeId,
             'chunk_number' => $this->chunkIndex + 1,
@@ -240,7 +245,7 @@ class FetchYoutubeVideoChunkJob implements ShouldQueue
         $nextAttempt = $this->rateLimitRetryAttempt + 1;
 
         if ($nextAttempt > $maxRetries) {
-            $this->channelLogger()->error('Rate limit retry limit reached for chunk.', [
+            Log::channel('youtube')->error('Rate limit retry limit reached for chunk.', [
                 'chunk_number' => $this->chunkIndex + 1,
                 'attempt' => $this->rateLimitRetryAttempt,
                 'max_retries' => $maxRetries,
@@ -250,7 +255,7 @@ class FetchYoutubeVideoChunkJob implements ShouldQueue
             throw new \RuntimeException('yt-dlp video chunk fetch exceeded rate-limit retries.');
         }
 
-        $this->channelLogger()->warning('Rate limit detected for chunk, re-dispatching with lower/equal threads.', [
+        Log::channel('youtube')->warning('Rate limit detected for chunk, re-dispatching with lower/equal threads.', [
             'chunk_number' => $this->chunkIndex + 1,
             'attempt' => $nextAttempt,
             'max_retries' => $maxRetries,
@@ -364,17 +369,6 @@ class FetchYoutubeVideoChunkJob implements ShouldQueue
         }
 
         return '';
-    }
-
-    private function channelLogger(): \Psr\Log\LoggerInterface
-    {
-        $directory = storage_path('logs/' . $this->youtubeId);
-        File::ensureDirectoryExists($directory);
-
-        return Log::build([
-            'driver' => 'single',
-            'path' => $directory . '/video_chunk.log',
-        ]);
     }
 
     private function resolvedThreadCount(): int

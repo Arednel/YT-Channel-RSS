@@ -10,7 +10,6 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 
 class BuildYoutubeFeedJob implements ShouldQueue
@@ -46,8 +45,7 @@ class BuildYoutubeFeedJob implements ShouldQueue
             return;
         }
 
-        $this->channelLogger($channel->youtube_id)->info('', []);
-        $this->channelLogger($channel->youtube_id)->info('XML feed build started.', [
+        Log::channel('youtube')->info('XML feed build started.', [
             'channel_id' => $channel->id,
             'youtube_id' => $channel->youtube_id,
         ]);
@@ -61,7 +59,7 @@ class BuildYoutubeFeedJob implements ShouldQueue
             $freshChannel->markIdle();
         }
 
-        $this->channelLogger($channel->youtube_id)->info('XML feed build finished.', [
+        Log::channel('youtube')->info('XML feed build finished.', [
             'channel_id' => $channel->id,
             'youtube_id' => $channel->youtube_id,
             'entry_count' => $result['entry_count'],
@@ -82,21 +80,10 @@ class BuildYoutubeFeedJob implements ShouldQueue
 
         $channel->markFeedFailed('Feed build failed: ' . $exception->getMessage());
 
-        $this->channelLogger($channel->youtube_id)->error('XML feed build failed.', [
+        Log::channel('youtube')->error('XML feed build failed.', [
             'channel_id' => $channel->id,
             'youtube_id' => $channel->youtube_id,
             'error' => $exception->getMessage(),
-        ]);
-    }
-
-    private function channelLogger(string $youtubeId): \Psr\Log\LoggerInterface
-    {
-        $directory = storage_path('logs/' . $youtubeId);
-        File::ensureDirectoryExists($directory);
-
-        return Log::build([
-            'driver' => 'single',
-            'path' => $directory . '/feed.log',
         ]);
     }
 }

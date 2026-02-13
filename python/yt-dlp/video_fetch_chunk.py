@@ -150,12 +150,16 @@ def main() -> int:
     parser.add_argument("--out-dir", required=True)
     parser.add_argument("--jsonl-output", required=True)
     parser.add_argument("--log-file", required=True)
+    parser.add_argument("--channel-id", default="")
     parser.add_argument("--retries", type=int, default=3)
     parser.add_argument("--retry-delay", type=int, default=60)
     parser.add_argument("--max-workers", type=int, default=8)
     args = parser.parse_args()
 
     setup_logging(args.log_file)
+    channel_id = args.channel_id.strip() if isinstance(args.channel_id, str) else ""
+    if channel_id == "":
+        channel_id = "unknown"
 
     source_path = Path(args.source_dir) / args.source_file
     output_dir = Path(args.out_dir)
@@ -165,7 +169,11 @@ def main() -> int:
 
     source_entries = load_source_entries(source_path)
     if not source_entries:
-        logging.info("No video ids to process. source=%s", source_path)
+        logging.info(
+            "No video ids to process. channel=%s source=%s",
+            channel_id,
+            source_path,
+        )
         Path(args.jsonl_output).write_text("", encoding="utf-8")
         return 0
 
@@ -196,6 +204,7 @@ def main() -> int:
                 ydl_opts,
                 args.retries,
                 args.retry_delay,
+                channel_id,
             ): video_id
             for video_id in video_ids
         }
@@ -205,7 +214,12 @@ def main() -> int:
             try:
                 status, info = future.result()
             except Exception as exc:
-                logging.exception("Video worker crashed. id=%s error=%s", video_id, str(exc))
+                logging.exception(
+                    "Video worker crashed. channel=%s id=%s error=%s",
+                    channel_id,
+                    video_id,
+                    str(exc),
+                )
                 failed += 1
                 continue
 
@@ -232,7 +246,8 @@ def main() -> int:
                 fallback_entry = source_entry_by_id.get(video_id)
                 if fallback_entry is None:
                     logging.warning(
-                        "Restricted video fallback missing source entry. id=%s",
+                        "Restricted video fallback missing source entry. channel=%s id=%s",
+                        channel_id,
                         video_id,
                     )
 
@@ -250,7 +265,8 @@ def main() -> int:
                 fallback_entry = source_entry_by_id.get(video_id)
                 if fallback_entry is None:
                     logging.info(
-                        "Upcoming video fallback missing source entry. id=%s",
+                        "Upcoming video fallback missing source entry. channel=%s id=%s",
+                        channel_id,
                         video_id,
                     )
 
@@ -276,7 +292,8 @@ def main() -> int:
             except OSError:
                 pass
         logging.error(
-            "Chunk stopped due to rate limit. workers=%s source=%s",
+            "Chunk stopped due to rate limit. channel=%s workers=%s source=%s",
+            channel_id,
             workers,
             source_path,
         )
@@ -299,7 +316,8 @@ def main() -> int:
         pass
 
     logging.info(
-        "Chunk completed. total=%s successful=%s restricted=%s upcoming=%s failed=%s workers=%s source=%s output=%s",
+        "Chunk completed. channel=%s total=%s successful=%s restricted=%s upcoming=%s failed=%s workers=%s source=%s output=%s",
+        channel_id,
         len(video_ids),
         successful,
         restricted,

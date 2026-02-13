@@ -10,23 +10,28 @@ use App\Models\YoutubeChannel;
 use App\Support\Youtube\YtDlpAutoUpdateManager;
 use Illuminate\Bus\Batch;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 
-class SyncYoutubeChannelJob implements ShouldQueue
+class SyncYoutubeChannelJob implements ShouldQueue, ShouldBeUnique
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public int $tries = 3;
     public int $backoff = 60;
+    public int $uniqueFor = 7200;
 
     public function __construct(
         public int $channelId
-    ) {
+    ) {}
+
+    public function uniqueId(): string
+    {
+        return 'youtube-sync-channel:' . $this->channelId;
     }
 
     /**
@@ -43,8 +48,7 @@ class SyncYoutubeChannelJob implements ShouldQueue
     public function handle(
         RunYoutubeChannelSyncAction $runYoutubeChannelSync,
         YtDlpAutoUpdateManager $ytDlpAutoUpdateManager
-    ): void
-    {
+    ): void {
         $runYoutubeChannelSync->handle($this->channelId);
         $ytDlpAutoUpdateManager->recordSuccess(YtDlpAutoUpdateManager::CHANNEL_UPDATE_JOB);
     }
@@ -70,21 +74,10 @@ class SyncYoutubeChannelJob implements ShouldQueue
 
         $channel->clearActiveVideoBatchId();
 
-        $this->channelLogger($channel->youtube_id)->error('YouTube channel sync failed.', [
+        Log::channel('youtube')->error('YouTube channel sync failed.', [
             'channel_id' => $channel->id,
             'youtube_id' => $channel->youtube_id,
             'error' => $exception->getMessage(),
-        ]);
-    }
-
-    private function channelLogger(string $youtubeId): \Psr\Log\LoggerInterface
-    {
-        $directory = storage_path('logs/' . $youtubeId);
-        File::ensureDirectoryExists($directory);
-
-        return Log::build([
-            'driver' => 'single',
-            'path' => $directory . '/sync.log',
         ]);
     }
 }
