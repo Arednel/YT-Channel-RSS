@@ -6,6 +6,7 @@ use App\Actions\Youtube\DispatchSyncYoutubeChannelJobAction;
 use App\Jobs\DeleteYoutubeChannelJob;
 use App\Models\YoutubeChannel;
 use App\Support\YoutubeBatchManager;
+use App\Support\Youtube\YoutubeChannelReference;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Collection;
@@ -48,7 +49,16 @@ class YoutubeRssChannelsTable extends Component
     protected function rules(): array
     {
         return [
-            'channelUrl' => ['required', 'url', 'max:255'],
+            'channelUrl' => [
+                'required',
+                'string',
+                'max:255',
+                function (string $attribute, mixed $value, \Closure $fail): void {
+                    if (! is_string($value) || YoutubeChannelReference::normalizeInput($value) === null) {
+                        $fail('Use a YouTube @handle URL, /channel/UC... URL, @handle, or UC... value.');
+                    }
+                },
+            ],
             'deleteChannelId' => ['nullable', 'integer', 'exists:youtube_channels,id'],
         ];
     }
@@ -159,19 +169,36 @@ class YoutubeRssChannelsTable extends Component
     {
         $this->validateOnly('channelUrl');
 
-        $youtubeId = $this->extractYoutubeId($this->channelUrl);
-        if ($youtubeId === null) {
-            $this->addError('channelUrl', 'Could not find a YouTube @handle in the URL.');
+        $youtubeReference = $this->extractYoutubeReference($this->channelUrl);
+        if ($youtubeReference === null) {
+            $this->addError(
+                'channelUrl',
+                'Use a YouTube @handle URL, /channel/UC... URL, @handle, or UC... value.'
+            );
             return;
         }
 
-        if (YoutubeChannel::query()->where('youtube_id', $youtubeId)->exists()) {
+        $youtubeId = $youtubeReference['youtube_id'];
+        $youtubeChannelId = $youtubeReference['youtube_channel_id'];
+        $channelIdForDuplicateCheck = $youtubeChannelId
+            ?? (YoutubeChannelReference::isChannelId($youtubeId) ? $youtubeId : null);
+
+        $alreadyExists = YoutubeChannel::query()
+            ->where('youtube_id', $youtubeId);
+
+        if ($channelIdForDuplicateCheck !== null) {
+            $alreadyExists->orWhere('youtube_channel_id', $channelIdForDuplicateCheck)
+                ->orWhere('youtube_id', $channelIdForDuplicateCheck);
+        }
+
+        if ($alreadyExists->exists()) {
             $this->addError('channelUrl', 'This channel is already added.');
             return;
         }
 
         $channel = YoutubeChannel::query()->create([
             'youtube_id' => $youtubeId,
+            'youtube_channel_id' => $youtubeChannelId,
         ]);
         $this->dispatchSyncYoutubeChannelJob->handle($channel);
 
@@ -229,13 +256,12 @@ class YoutubeRssChannelsTable extends Component
         $this->dispatch('rss-copy-to-clipboard', text: $channel->rss_url);
     }
 
-    private function extractYoutubeId(string $url): ?string
+    /**
+     * @return array{youtube_id: string, youtube_channel_id: ?string}|null
+     */
+    private function extractYoutubeReference(string $url): ?array
     {
-        if (preg_match('/@[^\/\?\#]+/i', $url, $matches) === 1) {
-            return $matches[0];
-        }
-
-        return null;
+        return YoutubeChannelReference::normalizeInput($url);
     }
 
     /**
@@ -321,15 +347,18 @@ class YoutubeRssChannelsTable extends Component
             $searchQuery
                 ->where('channel_name', 'like', $like)
                 ->orWhere('youtube_id', 'like', $like)
+                ->orWhere('youtube_channel_id', 'like', $like)
                 ->orWhere('status', 'like', $like)
                 ->orWhere('updated_at', 'like', $like);
 
             if ($youtubeNeedle !== '') {
-                $searchQuery->orWhere('youtube_id', 'like', '%' . $youtubeNeedle . '%');
+                $searchQuery->orWhere('youtube_id', 'like', '%' . $youtubeNeedle . '%')
+                    ->orWhere('youtube_channel_id', 'like', '%' . $youtubeNeedle . '%');
             }
 
             if ($feedNeedle !== '') {
-                $searchQuery->orWhere('youtube_id', 'like', '%' . $feedNeedle . '%');
+                $searchQuery->orWhere('youtube_id', 'like', '%' . $feedNeedle . '%')
+                    ->orWhere('youtube_channel_id', 'like', '%' . $feedNeedle . '%');
             }
         });
     }

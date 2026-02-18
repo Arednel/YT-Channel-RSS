@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Actions\Youtube\RunYoutubeChannelSyncAction;
 use App\Jobs\Middleware\PreventOverlappingYoutubeFeedBuild;
 use App\Models\YoutubeChannel;
 use App\Support\YoutubeFeedXmlBuilder;
@@ -31,7 +32,10 @@ class BuildYoutubeFeedJob implements ShouldQueue
         ];
     }
 
-    public function handle(YoutubeFeedXmlBuilder $builder): void
+    public function handle(
+        YoutubeFeedXmlBuilder $builder,
+        RunYoutubeChannelSyncAction $runYoutubeChannelSync
+    ): void
     {
         $channel = YoutubeChannel::query()->find($this->channelId);
         if ($channel === null) {
@@ -39,6 +43,12 @@ class BuildYoutubeFeedJob implements ShouldQueue
         }
 
         if ($channel->isDeleting()) {
+            return;
+        }
+
+        $runYoutubeChannelSync->syncIdentifiersFromPersistedMetadata($this->channelId, true);
+        $channel = YoutubeChannel::query()->find($this->channelId);
+        if ($channel === null || $channel->isDeleting()) {
             return;
         }
 

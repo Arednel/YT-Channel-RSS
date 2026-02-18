@@ -109,22 +109,28 @@ pytest
    - `FetchYoutubeChannelInfoAndVideoListJob`
    - `DispatchYoutubeVideoSyncPhaseJob`
 4. Fetch phase starts -> `YoutubeChannel::markFetchingVideoList()` and Python channel/list fetch runs.
-5. Video phase builds chunk plan:
+5. Fetch phase applies metadata sync from `channel.json`:
+   - Updates `channel_name`.
+   - Stores resolved `youtube_channel_id` (`UC...`) when available.
+   - Defers handle promotion until a safer stage.
+   - Canonicalizes duplicates (older row wins if same resolved channel).
+6. Video phase builds chunk plan:
    - New videos included.
    - Existing videos included only if currently marked `is_upcoming`.
-6. If chunks exist -> `YoutubeChannel::markFetchingVideos()` and batch runs chunk jobs.
+7. If chunks exist -> `YoutubeChannel::markFetchingVideos()` and batch runs chunk jobs.
    - Status label is `fetching videos (x out of x)` using `video_fetch_progress_current` / `video_fetch_progress_total`.
    - Each processed chunk increments current progress (clamped to total).
    - Per-video statuses `restricted` and `upcoming` are persisted as fallback metadata and do not count as hard chunk failures.
-7. Batch finalize:
+8. Batch finalize:
    - Any failed chunks -> `YoutubeChannel::markFailed()`.
    - Otherwise -> `YoutubeChannel::markBuildingFeed()`.
-8. Feed built -> `YoutubeChannel::markIdle()` (`idle`, `last_sync_at` updated).
+9. Before feed write, persisted metadata sync runs again and may promote `youtube_id` to handle.
+10. Feed built -> `YoutubeChannel::markIdle()` (`idle`, `last_sync_at` updated).
 
 ## Deletion Lifecycle
 1. UI applies `YoutubeChannel::markDeleting()` (`deleting`).
 2. Active chunk batch is canceled.
-3. Feed file and Python artifact directory deleted.
+3. Feed file and Python artifact directory for current `youtube_id` deleted.
 4. Channel row deleted; videos deleted by FK cascade.
 
 ## Monitoring Checklist

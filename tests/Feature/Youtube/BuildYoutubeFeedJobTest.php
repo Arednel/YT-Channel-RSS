@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Youtube;
 
+use App\Actions\Youtube\RunYoutubeChannelSyncAction;
 use App\Enums\YoutubeChannelStatus;
 use App\Jobs\BuildYoutubeFeedJob;
 use App\Models\YoutubeChannel;
@@ -46,13 +47,16 @@ class BuildYoutubeFeedJobTest extends TestCase
         $channelJsonPath = base_path('python/yt-dlp_jsons/' . $youtubeId . '/channel.json');
         File::ensureDirectoryExists(dirname($channelJsonPath));
         File::put($channelJsonPath, json_encode([
-            'channel_id' => 'UCFEEDCONTRACT123',
+            'channel_id' => 'UCFEEDCONTRACT1234567890',
             'channel' => 'Feed Contract Channel',
         ], JSON_THROW_ON_ERROR));
 
         try {
             $job = new BuildYoutubeFeedJob($channel->id);
-            $job->handle(app(YoutubeFeedXmlBuilder::class));
+            $job->handle(
+                app(YoutubeFeedXmlBuilder::class),
+                app(RunYoutubeChannelSyncAction::class)
+            );
 
             $channel->refresh();
             $this->assertTrue($channel->isIdle());
@@ -63,8 +67,8 @@ class BuildYoutubeFeedJobTest extends TestCase
             $xml = Storage::disk('public')->get($relativeFeedPath);
             $this->assertStringContainsString('<feed ', $xml);
             $this->assertStringContainsString('xmlns="http://www.w3.org/2005/Atom"', $xml);
-            $this->assertStringContainsString('UCFEEDCONTRACT123</yt:channelId>', $xml);
-            $this->assertStringContainsString('<id>yt:channel:UCFEEDCONTRACT123</id>', $xml);
+            $this->assertStringContainsString('UCFEEDCONTRACT1234567890</yt:channelId>', $xml);
+            $this->assertStringContainsString('<id>yt:channel:UCFEEDCONTRACT1234567890</id>', $xml);
             $this->assertStringContainsString('feed-video-001</yt:videoId>', $xml);
             $this->assertStringContainsString('feed-video-002</yt:videoId>', $xml);
             $this->assertStringContainsString('Feed Contract Channel', $xml);

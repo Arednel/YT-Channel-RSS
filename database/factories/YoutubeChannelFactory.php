@@ -18,6 +18,7 @@ class YoutubeChannelFactory extends Factory
     {
         return [
             'youtube_id' => '@' . Str::lower($this->faker->unique()->bothify('channel####??')),
+            'youtube_channel_id' => null,
             'channel_name' => $this->faker->company(),
             'status' => YoutubeChannelStatus::Idle,
             'last_sync_at' => null,

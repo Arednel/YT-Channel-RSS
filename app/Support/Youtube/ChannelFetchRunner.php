@@ -11,7 +11,7 @@ class ChannelFetchRunner
 {
     public function run(YoutubeChannel $channel): ChannelFetchRunResult
     {
-        $channelUrl = 'https://www.youtube.com/' . ltrim($channel->youtube_id, '/');
+        $channelUrl = $channel->youtube_url;
         $outputDirectory = base_path('python/yt-dlp_jsons/' . $channel->youtube_id);
         File::ensureDirectoryExists($outputDirectory);
 

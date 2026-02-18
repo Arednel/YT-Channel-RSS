@@ -1,9 +1,11 @@
 import json
 import os
+import re
 import subprocess
 import sys
 import xml.etree.ElementTree as element_tree
 from pathlib import Path
+from urllib.parse import unquote, urlparse
 
 import pytest
 
@@ -46,14 +48,46 @@ def _configured_channel_url() -> str | None:
     if raw is None:
         raw = _phpunit_env("YOUTUBE_TEST_REAL_CHANNEL") or ""
 
-    raw = raw.strip()
-    if raw == "":
+    normalized = _normalize_channel_reference(raw)
+    if normalized is None:
         return None
 
-    if raw.startswith("http://") or raw.startswith("https://"):
-        return raw
+    return normalized
 
-    return f"https://www.youtube.com/{raw.lstrip('/')}"
+
+def _normalize_channel_reference(raw: str) -> str | None:
+    value = unquote(raw.strip())
+    if value == "":
+        return None
+
+    if value.startswith("http://") or value.startswith("https://"):
+        parsed = urlparse(value)
+        host = parsed.netloc.lower()
+        path = unquote(parsed.path or "").strip("/")
+
+        if host in {"youtube.com", "www.youtube.com", "m.youtube.com"}:
+            if path.startswith("@"):
+                return f"https://www.youtube.com/{path.split('/')[0]}"
+
+            if path.lower().startswith("channel/"):
+                maybe_channel_id = path.split("/", 2)[1] if "/" in path else ""
+                if re.fullmatch(r"UC[A-Za-z0-9_-]{22}", maybe_channel_id):
+                    return f"https://www.youtube.com/channel/{maybe_channel_id}"
+
+        return value
+
+    if value.startswith("@"):
+        return f"https://www.youtube.com/{value}"
+
+    if re.fullmatch(r"UC[A-Za-z0-9_-]{22}", value):
+        return f"https://www.youtube.com/channel/{value}"
+
+    if value.lower().startswith("channel/"):
+        maybe_channel_id = value.split("/", 2)[1] if "/" in value else ""
+        if re.fullmatch(r"UC[A-Za-z0-9_-]{22}", maybe_channel_id):
+            return f"https://www.youtube.com/channel/{maybe_channel_id}"
+
+    return f"https://www.youtube.com/{value.lstrip('/')}"
 
 
 def _python_binary() -> str:

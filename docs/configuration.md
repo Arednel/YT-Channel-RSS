@@ -96,6 +96,8 @@ Queue middleware wrappers live under `App\Jobs\Middleware` and delegate to Larav
 
 ### Python artifacts
 - Channel output root: `python/yt-dlp_jsons/{youtube_id}`
+  - Path key is the channel's `youtube_id` at fetch time.
+  - If a channel later promotes from `UC...` to `@handle`, older artifact folders are not auto-renamed.
 - Expected files:
   - `channel.json`
   - `videos.jsonl`

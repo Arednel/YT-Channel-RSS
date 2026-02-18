@@ -1,6 +1,8 @@
-<h2 align="center">YouTube RSS</h2>
+<h2 align="center">YT-Channel RSS</h2>
 
-Project that creates per-channel RSS feeds from YouTube channel using [yt-dlp](https://github.com/yt-dlp/yt-dlp).
+Laravel application that creates per-channel RSS feeds from YouTube using [yt-dlp](https://github.com/yt-dlp/yt-dlp).
+
+Recommended use case: creating RSS feed for [FreshRSS](https://github.com/FreshRSS/FreshRSS) with [Youlag](https://github.com/civilblur/youlag) extension.
 
 ## Quick Start
 
@@ -88,7 +90,6 @@ pytest -m integration
 ```
 
 ## Documentation
-- `docs/README.md`
 - `docs/architecture.md`
 - `docs/configuration.md`
 - `docs/operations.md`

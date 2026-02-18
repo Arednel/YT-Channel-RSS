@@ -83,10 +83,17 @@ pytest python/tests/test_channel_list.py
     - uses fixture `channel.json` / `videos.jsonl`
     - dispatches and executes chunk jobs through the database queue
     - verifies video upsert, batch finalization, and feed file creation
+    - verifies resolved `youtube_channel_id` is used in feed identity when available
+  - Feature: `RunYoutubeChannelSyncActionTest` identifier canonicalization path:
+    - verifies metadata can promote `youtube_id` from `UC...` to `@handle` in a safe step
+    - verifies duplicate handle-vs-UC records are collapsed to one canonical channel row
   - Feature: `RunYoutubeChannelSyncActionTest` idempotent path:
     - re-runs sync on same fixture dataset
     - verifies no duplicate `youtube_videos` rows
     - verifies stable `last_video_id`
+  - Feature: `YoutubeRssChannelsTableInputTest`:
+    - verifies component save flow accepts raw `@handle`, `UC...` URL input, and percent-encoded handles
+    - verifies duplicate prevention for UC/handle-equivalent channels
   - Feature: `SyncYoutubeChannelQueuedWorkflowTest`:
     - real queued orchestration from `DispatchSyncYoutubeChannelJobAction` through chain + chunk batch
     - restart simulation by forcing `jobs.reserved_at` and retry-after recovery
@@ -124,6 +131,8 @@ pytest python/tests/test_channel_list.py
     - dispatches ordered chain jobs (`FetchYoutubeChannelInfoAndVideoListJob` then `DispatchYoutubeVideoSyncPhaseJob`)
   - Unit: `YoutubeChannelStatusLabelTest`:
     - renders `fetching videos (x out of x)` only for `fetching videos` status
+  - Unit: `YoutubeChannelReferenceTest`:
+    - verifies input normalization for handle/UC/url variants and canonical YouTube URL generation
   - Unit: `YtDlpAutoUpdateManagerTest`:
     - validates failure-threshold trigger for `UpdateYtDlpJob`
     - ignores rate-limit-like errors for threshold counting

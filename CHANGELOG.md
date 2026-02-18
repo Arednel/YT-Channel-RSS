@@ -2,6 +2,12 @@
 
 ## Development
 
+* 2026-02-18 -- 0.5.6 YouTube channel URL and Project name
+  * Renamed project to "YT-Channel RSS"
+  * Added support for UC* YouTube channel URLs and fix for unusual symbols
+  * Updated docs
+  * Project cleanup
+
 * 2026-02-14 -- 0.5.5 Improved Job logic and Progress information
   * Improved job queue logic and 
   * Added fetching videos progress indication

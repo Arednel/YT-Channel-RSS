@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\YoutubeChannelStatus;
+use App\Support\Youtube\YoutubeChannelReference;
 use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -22,6 +23,7 @@ class YoutubeChannel extends Model
      */
     protected $fillable = [
         'youtube_id',
+        'youtube_channel_id',
         'channel_name',
         'status',
         'last_sync_at',
@@ -241,6 +243,14 @@ class YoutubeChannel extends Model
     public function getRssUrlAttribute(): string
     {
         return rtrim(config('app.url'), '/') . '/feeds/' . $this->youtube_id;
+    }
+
+    public function getYoutubeUrlAttribute(): string
+    {
+        $youtubeId = is_string($this->youtube_id) ? $this->youtube_id : '';
+        $youtubeChannelId = is_string($this->youtube_channel_id) ? $this->youtube_channel_id : null;
+
+        return YoutubeChannelReference::canonicalUrl($youtubeId, $youtubeChannelId);
     }
 
     public function getStatusBadgeClassAttribute(): string

@@ -85,7 +85,7 @@
                             </div>
                         </td>
                         <td>
-                            <a href="{{ 'https://www.youtube.com/' . $channel->youtube_id }}" target="_blank"
+                            <a href="{{ $channel->youtube_url }}" target="_blank"
                                 rel="noopener">
                                 {{ $channel->youtube_id }}
                             </a>
@@ -142,8 +142,8 @@
                 <form wire:submit.prevent="save">
                     <div class="form-group">
                         <label class="form-label" for="channel-url">Channel URL</label>
-                        <input id="channel-url" class="form-input" type="url"
-                            placeholder="https://www.youtube.com/@channel" wire:model="channelUrl" autocomplete="off"
+                        <input id="channel-url" class="form-input" type="text"
+                            placeholder="https://www.youtube.com/@channel or /channel/UC..." wire:model="channelUrl" autocomplete="off"
                             required>
                         @error('channelUrl')
                             <div class="form-error">{{ $message }}</div>

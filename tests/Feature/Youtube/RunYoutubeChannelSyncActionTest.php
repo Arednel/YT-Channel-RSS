@@ -5,6 +5,7 @@ namespace Tests\Feature\Youtube;
 use App\Actions\Youtube\RunYoutubeChannelSyncAction;
 use App\Enums\YoutubeChannelStatus;
 use App\Models\YoutubeChannel;
+use App\Support\Youtube\YoutubeChannelReference;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
@@ -117,7 +118,7 @@ class RunYoutubeChannelSyncActionTest extends TestCase
                 ],
                 channelPayload: [
                     'channel' => 'Fixture Channel',
-                    'channel_id' => 'UCFIXTURE123',
+                    'channel_id' => 'UCFIXTURE123456789012345',
                 ],
             );
 
@@ -165,12 +166,129 @@ class RunYoutubeChannelSyncActionTest extends TestCase
                 Storage::disk('public')->exists('feeds/' . $channel->youtube_id . '.xml')
             );
             $feedXml = Storage::disk('public')->get('feeds/' . $channel->youtube_id . '.xml');
-            $this->assertStringContainsString('yt:channel:UCFIXTURE123', $feedXml);
+            $this->assertStringContainsString('yt:channel:UCFIXTURE123456789012345', $feedXml);
             $this->assertStringContainsString('yt:video:fixture-video-001', $feedXml);
             $this->assertStringContainsString('yt:video:fixture-video-003', $feedXml);
         } finally {
             File::deleteDirectory($outputDirectory);
             File::deleteDirectory(storage_path('framework/testing/disks/public/feeds'));
+        }
+    }
+
+    public function test_it_resolves_uc_channel_metadata_then_promotes_to_handle_in_safe_sync_step(): void
+    {
+        $initialChannelId = 'UCABCDEFGHIJKLMN_OPQRSTU';
+        $resolvedHandle = '@resolved-handle-' . uniqid();
+
+        $channel = YoutubeChannel::factory()
+            ->idle()
+            ->forYoutubeId($initialChannelId)
+            ->create([
+                'youtube_channel_id' => $initialChannelId,
+            ]);
+
+        $oldOutputDirectory = base_path('python/yt-dlp_jsons/' . $initialChannelId);
+        $oldChannelJsonPath = $oldOutputDirectory . '/channel.json';
+        $oldVideosJsonPath = $oldOutputDirectory . '/videos.jsonl';
+
+        $this->fakeYoutubeChunkProcessFromSource(static fn (array $entry, string $videoId): ?array => null);
+
+        try {
+            $this->prepareChannelFetchArtifacts(
+                outputDirectory: $oldOutputDirectory,
+                channelJsonPath: $oldChannelJsonPath,
+                videosJsonPath: $oldVideosJsonPath,
+                videos: [
+                    [
+                        'id' => 'resolved-video-001',
+                        'title' => 'Resolved Video 1',
+                        'timestamp' => 1767225600,
+                    ],
+                ],
+                channelPayload: [
+                    'channel_id' => $initialChannelId,
+                    'uploader_id' => $resolvedHandle,
+                    'channel' => 'Resolved Channel Name',
+                ],
+            );
+
+            $didFetch = app(RunYoutubeChannelSyncAction::class)->fetchChannelInfoAndVideoList($channel->id);
+            $this->assertTrue($didFetch);
+
+            $channel->refresh();
+            $this->assertSame($initialChannelId, $channel->youtube_id);
+            $this->assertSame($initialChannelId, $channel->youtube_channel_id);
+            $this->assertSame('Resolved Channel Name', $channel->channel_name);
+            $this->assertSame('https://www.youtube.com/channel/' . $initialChannelId, $channel->youtube_url);
+
+            app(RunYoutubeChannelSyncAction::class)->syncIdentifiersFromPersistedMetadata($channel->id, true);
+
+            $channel->refresh();
+            $this->assertSame($resolvedHandle, $channel->youtube_id);
+            $this->assertSame($initialChannelId, $channel->youtube_channel_id);
+            $this->assertSame('https://www.youtube.com/' . $resolvedHandle, $channel->youtube_url);
+
+            $this->assertDirectoryExists($oldOutputDirectory);
+            $this->assertFileExists($oldOutputDirectory . '/channel.json');
+            $this->assertFileExists($oldOutputDirectory . '/videos.jsonl');
+        } finally {
+            File::deleteDirectory($oldOutputDirectory);
+        }
+    }
+
+    public function test_it_rejects_newer_duplicate_channel_when_metadata_matches_existing_uc_identifier(): void
+    {
+        $resolvedChannelId = 'UCABCDEFGHIJKLMN_OPQRSTU';
+        $canonicalHandle = '@canonical-handle-' . uniqid();
+        $duplicateHandle = '@duplicate-handle-' . uniqid();
+
+        $canonicalChannel = YoutubeChannel::factory()
+            ->idle()
+            ->forYoutubeId($canonicalHandle)
+            ->create([
+                'youtube_channel_id' => $resolvedChannelId,
+            ]);
+
+        $duplicateChannel = YoutubeChannel::factory()
+            ->idle()
+            ->forYoutubeId($duplicateHandle)
+            ->create();
+
+        $duplicateOutputDirectory = base_path('python/yt-dlp_jsons/' . $duplicateHandle);
+
+        $this->fakeYoutubeChunkProcessFromSource(static fn (array $entry, string $videoId): ?array => null);
+
+        try {
+            $this->prepareChannelFetchArtifacts(
+                outputDirectory: $duplicateOutputDirectory,
+                channelJsonPath: $duplicateOutputDirectory . '/channel.json',
+                videosJsonPath: $duplicateOutputDirectory . '/videos.jsonl',
+                videos: [
+                    [
+                        'id' => 'dup-video-001',
+                        'title' => 'Duplicate Video 1',
+                        'timestamp' => 1767225600,
+                    ],
+                ],
+                channelPayload: [
+                    'channel_id' => $resolvedChannelId,
+                    'uploader_id' => $canonicalHandle,
+                    'channel' => 'Canonical Channel',
+                ],
+            );
+
+            $didFetch = app(RunYoutubeChannelSyncAction::class)->fetchChannelInfoAndVideoList($duplicateChannel->id);
+            $this->assertFalse($didFetch);
+
+            $this->assertDatabaseMissing('youtube_channels', [
+                'id' => $duplicateChannel->id,
+            ]);
+            $this->assertDatabaseHas('youtube_channels', [
+                'id' => $canonicalChannel->id,
+                'youtube_channel_id' => $resolvedChannelId,
+            ]);
+        } finally {
+            File::deleteDirectory($duplicateOutputDirectory);
         }
     }
 
@@ -216,7 +334,7 @@ class RunYoutubeChannelSyncActionTest extends TestCase
                 ],
                 channelPayload: [
                     'channel' => 'Idempotent Fixture Channel',
-                    'channel_id' => 'UCIDEMPOTENT123',
+                    'channel_id' => 'UCIDEMPOTENT123456789012',
                 ],
             );
 
@@ -261,7 +379,7 @@ class RunYoutubeChannelSyncActionTest extends TestCase
                 Storage::disk('public')->exists('feeds/' . $channel->youtube_id . '.xml')
             );
             $feedXml = Storage::disk('public')->get('feeds/' . $channel->youtube_id . '.xml');
-            $this->assertStringContainsString('yt:channel:UCIDEMPOTENT123', $feedXml);
+            $this->assertStringContainsString('yt:channel:UCIDEMPOTENT123456789012', $feedXml);
             $this->assertStringContainsString('yt:video:idem-video-001', $feedXml);
             $this->assertStringContainsString('yt:video:idem-video-003', $feedXml);
         } finally {
@@ -277,10 +395,9 @@ class RunYoutubeChannelSyncActionTest extends TestCase
             return null;
         }
 
-        $withoutDomain = preg_replace('~^https?://(?:www\.)?youtube\.com/~i', '', $configured);
-        $normalized = ltrim((string) $withoutDomain, '/');
+        $normalized = YoutubeChannelReference::normalizeInput($configured);
 
-        return $normalized !== '' ? $normalized : null;
+        return $normalized['youtube_id'] ?? null;
     }
 
     private function runSyncActionWorkflow(int $channelId): void

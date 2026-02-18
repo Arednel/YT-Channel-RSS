@@ -1,7 +1,7 @@
 # Architecture
 
 ## Goal
-Generate and serve Atom feeds for YouTube channels identified by handle (`@channel`) by combining:
+Generate and serve Atom feeds for YouTube channels identified by handle (`@channel`) or channel id (`UC...`) by combining:
 - Laravel 12 app/API/UI and queue orchestration.
 - Python `yt-dlp` scripts for YouTube metadata collection.
 - MySQL persistence for channels/videos.
@@ -25,7 +25,8 @@ Generate and serve Atom feeds for YouTube channels identified by handle (`@chann
 ## UI Flow (Livewire)
 - Add channel:
   - Validates `channelUrl`.
-  - Extracts first `@handle` from URL.
+  - Normalizes supported input (`@handle`, `UC...`, YouTube URL, or local `/feeds/{id}` URL).
+  - Applies duplicate checks across both `youtube_id` and `youtube_channel_id`.
   - Creates `youtube_channels` row.
   - Calls `DispatchSyncYoutubeChannelJobAction`.
   - Action acquires sync unique lock first, then applies `markQueuedForSync()` and dispatches `SyncYoutubeChannelJob`.
@@ -42,7 +43,8 @@ Generate and serve Atom feeds for YouTube channels identified by handle (`@chann
 
 ### `youtube_channels`
 - `id` (PK)
-- `youtube_id` (unique, handle or channel id)
+- `youtube_id` (unique; route key, usually handle when resolved)
+- `youtube_channel_id` (unique, nullable; stable `UC...` id)
 - `channel_name` (nullable)
 - `status` (string, enum-cast via `YoutubeChannelStatus`)
 - `last_sync_at` (nullable datetime)
@@ -134,9 +136,13 @@ Key rules:
   1. Guard: channel exists, not deleting, no active video batch.
   2. Apply `markFetchingVideoList()`.
   3. Run Python channel fetch (`ChannelFetchRunner` -> `channel_fetch.py`).
-  4. Read `channel.json` (if present) and update `channel_name`.
+  4. Read `channel.json` (if present), update `channel_name`, and resolve/store canonical ids:
+     - store `youtube_channel_id` when metadata exposes `UC...`
+     - keep `youtube_id` unchanged in this phase (`allowHandleUpdate=false`)
+     - resolve handle/UC conflicts by keeping one canonical DB row and deleting duplicates
   5. Validate `videos.jsonl`.
-  6. On success, reset `channel_update` failure counter in `YtDlpAutoUpdateManager`.
+  6. If this row was identified as a duplicate and removed, stop this sync (`false` return).
+  7. On success, reset `channel_update` failure counter in `YtDlpAutoUpdateManager`.
 
 ### 4) Dispatch Video Phase
 - Job: `DispatchYoutubeVideoSyncPhaseJob`
@@ -157,6 +163,7 @@ Key rules:
      - Set `active_video_batch_id`.
   5. If no jobs:
      - Optionally update `last_video_id`.
+     - Re-read persisted `channel.json` and allow handle promotion (`allowHandleUpdate=true`) before feed decisions.
      - If feed file missing, apply `markBuildingFeed(true)` and dispatch `BuildYoutubeFeedJob`.
      - Else apply `markIdle()` via `FinalizeYoutubeChannelSyncWithoutBatchAction`.
 
@@ -201,6 +208,7 @@ Key rules:
 - Middleware:
   - `App\Jobs\Middleware\PreventOverlappingYoutubeFeedBuild`
   - `WithoutOverlapping('youtube-feed-build:{id}')`
+- Before XML generation, re-syncs persisted metadata identifiers (`syncIdentifiersFromPersistedMetadata(..., true)`).
 - Uses `YoutubeFeedXmlBuilder` to write Atom XML file to public disk.
 - Success: apply `markIdle()`.
 - Failure: apply `markFeedFailed()`.
@@ -213,7 +221,7 @@ Key rules:
 - Steps:
   - Cancel active batch.
   - Delete feed xml.
-  - Delete Python artifact directory for channel.
+  - Delete Python artifact directory for the current `youtube_id`.
   - Delete DB channel row (videos cascade by FK).
 
 ## Scheduler

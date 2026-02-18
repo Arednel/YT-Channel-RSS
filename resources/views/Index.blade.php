@@ -17,10 +17,10 @@
 <body>
     @livewire('youtube-rss-dashboard')
 
-    <!-- Footer -->
     <footer class="site-footer">
         <p>Copyright © 2026</p>
     </footer>
+
     <script src="{{ asset('js/templatemo-glass-admin-script.js') }}"></script>
     <script src="{{ asset('js/rss-copy-to-clipboard.js') }}"></script>
     <script src="{{ asset('js/localize-datetime.js') }}"></script>
