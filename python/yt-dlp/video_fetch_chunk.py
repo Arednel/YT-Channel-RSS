@@ -38,6 +38,7 @@ def compact_video_payload(
         "title",
         "description",
         "upload_date",
+        "release_date",
         "timestamp",
         "release_timestamp",
         "modified_date",

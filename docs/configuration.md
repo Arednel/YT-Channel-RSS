@@ -84,7 +84,7 @@ Queue middleware wrappers live under `App\Jobs\Middleware` and delegate to Larav
 
 ## Timestamp Persistence Behavior
 - `published_date` and `updated_date` are stored as UTC timestamps in MySQL.
-- Import behavior prefers Unix timestamp fields when present (`timestamp`, `modified_timestamp`, `release_timestamp`), then falls back to date-only `upload_date` (`Ymd`).
+- Import behavior prefers Unix timestamp fields when present (`timestamp`, `modified_timestamp`, `release_timestamp`), then falls back to date-only `release_date` and `upload_date` (`Ymd`).
 - Result: full time is preserved when yt-dlp provides it; otherwise values fall back to midnight UTC.
 
 ## Filesystem Paths Used by Feature

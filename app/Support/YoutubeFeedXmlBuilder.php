@@ -4,7 +4,6 @@ namespace App\Support;
 
 use App\Models\YoutubeChannel;
 use App\Models\YoutubeVideo;
-use App\Support\Youtube\YoutubeChannelReference;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\File;
@@ -33,10 +32,10 @@ class YoutubeFeedXmlBuilder
             ->orderByDesc('published_date')
             ->orderByDesc('youtube_video_id');
 
-        $channelIdentity = $this->resolveChannelIdentity($channel);
+        $channelUCID = $channel->youtube_channel_id;
+        $channelUCIDFullLink = "https://www.youtube.com/channel/" . $channel->youtube_channel_id;
         $channelName = $channel->channel_name ?: $channel->youtube_id;
-        $channelUrl = $channel->youtube_url;
-        $feedUrl = rtrim((string) config('app.url'), '/') . '/feeds/' . $channel->youtube_id;
+        $feedUrl = $channel->rss_url;
         $feedPublishedAt = $this->resolveFeedPublishedDate($channel);
         $feedUpdatedAt = $this->resolveFeedUpdatedDate($channel);
         $entryCount = 0;
@@ -60,29 +59,27 @@ class YoutubeFeedXmlBuilder
             $writer->writeAttribute('href', $feedUrl);
             $writer->endElement();
 
-            $writer->startElement('link');
-            $writer->writeAttribute('rel', 'alternate');
-            $writer->writeAttribute('href', $channelUrl);
-            $writer->endElement();
+            $writer->writeElement('id', "yt:channel:" . $channelUCID);
 
-            $writer->writeElement('id', $channelIdentity['feed_id']);
-
-            if ($channelIdentity['channel_id'] !== null) {
-                $writer->writeElementNS('yt', 'channelId', self::YT_NS, $channelIdentity['channel_id']);
-            }
+            $writer->writeElement('yt:channelId', $channelUCID);
 
             $writer->writeElement('title', $channelName);
 
+            $writer->startElement('link');
+            $writer->writeAttribute('rel', 'alternate');
+            $writer->writeAttribute('href', $channelUCIDFullLink);
+            $writer->endElement();
+
             $writer->startElement('author');
             $writer->writeElement('name', $channelName);
-            $writer->writeElement('uri', $channelUrl);
+            $writer->writeElement('uri', $channelUCIDFullLink);
             $writer->endElement();
 
             $writer->writeElement('published', $feedPublishedAt->toAtomString());
             $writer->writeElement('updated', $feedUpdatedAt->toAtomString());
 
             foreach ($videosQuery->cursor() as $video) {
-                if ($this->writeEntry($writer, $video, $channelIdentity['channel_id'] ?? $channel->youtube_id, $channelName, $channelUrl)) {
+                if ($this->writeEntry($writer, $video, $channelUCID, $channelName, $channelUCIDFullLink)) {
                     $entryCount++;
                 }
             }
@@ -101,40 +98,6 @@ class YoutubeFeedXmlBuilder
             'path' => $absolutePath,
             'relative_path' => $relativePath,
             'entry_count' => $entryCount,
-        ];
-    }
-
-    /**
-     * @return array{channel_id: ?string, feed_id: string}
-     */
-    private function resolveChannelIdentity(YoutubeChannel $channel): array
-    {
-        $channelId = YoutubeChannelReference::normalizeChannelId(
-            is_string($channel->youtube_channel_id) ? $channel->youtube_channel_id : null
-        ) ?? YoutubeChannelReference::normalizeChannelId(ltrim((string) $channel->youtube_id, '/'));
-        $channelJsonPath = base_path('python/yt-dlp_jsons/' . $channel->youtube_id . '/channel.json');
-
-        if (File::exists($channelJsonPath)) {
-            try {
-                $payload = json_decode(File::get($channelJsonPath), true, 512, JSON_THROW_ON_ERROR);
-                if (is_array($payload)) {
-                    $channelId = YoutubeChannelReference::resolveChannelIdFromMetadata($payload) ?? $channelId;
-                }
-            } catch (\JsonException) {
-                // Keep fallback identity when channel.json is unreadable.
-            }
-        }
-
-        if ($channelId !== null) {
-            return [
-                'channel_id' => $channelId,
-                'feed_id' => 'yt:channel:' . $channelId,
-            ];
-        }
-
-        return [
-            'channel_id' => null,
-            'feed_id' => 'yt:channel_handle:' . ltrim($channel->youtube_id, '@'),
         ];
     }
 
@@ -163,9 +126,9 @@ class YoutubeFeedXmlBuilder
     private function writeEntry(
         \XMLWriter $writer,
         YoutubeVideo $video,
-        string $channelIdentity,
+        string $channelUCID,
         string $channelName,
-        string $channelUrl
+        string $channelUCIDFullLink
     ): bool {
         $publishedAt = $video->published_date;
         if (! $publishedAt instanceof CarbonInterface) {
@@ -179,8 +142,8 @@ class YoutubeFeedXmlBuilder
         $writer->startElement('entry');
 
         $writer->writeElement('id', 'yt:video:' . $video->youtube_video_id);
-        $writer->writeElementNS('yt', 'videoId', self::YT_NS, $video->youtube_video_id);
-        $writer->writeElementNS('yt', 'channelId', self::YT_NS, $channelIdentity);
+        $writer->writeElement('yt:videoId', $video->youtube_video_id);
+        $writer->writeElement('yt:channelId', $channelUCID);
         $writer->writeElement('title', $videoTitle);
 
         $writer->startElement('link');
@@ -190,30 +153,30 @@ class YoutubeFeedXmlBuilder
 
         $writer->startElement('author');
         $writer->writeElement('name', $channelName);
-        $writer->writeElement('uri', $channelUrl);
+        $writer->writeElement('uri', $channelUCIDFullLink);
         $writer->endElement();
 
         $writer->writeElement('published', $publishedAt->toAtomString());
         $writer->writeElement('updated', $updatedAt->toAtomString());
 
-        $writer->startElementNS('media', 'group', self::MEDIA_NS);
+        $writer->startElement('media:group');
 
-        $writer->writeElementNS('media', 'title', self::MEDIA_NS, $mediaTitle);
+        $writer->writeElement('media:title', $mediaTitle);
 
-        $writer->startElementNS('media', 'content', self::MEDIA_NS);
+        $writer->startElement('media:content');
         $writer->writeAttribute('url', $video->media_content_url);
         $writer->writeAttribute('type', 'application/x-shockwave-flash');
         $writer->writeAttribute('width', '640');
         $writer->writeAttribute('height', '390');
         $writer->endElement();
 
-        $writer->startElementNS('media', 'thumbnail', self::MEDIA_NS);
+        $writer->startElement('media:thumbnail');
         $writer->writeAttribute('url', $video->media_thumbnail_url);
         $writer->writeAttribute('width', '480');
         $writer->writeAttribute('height', '360');
         $writer->endElement();
 
-        $writer->writeElementNS('media', 'description', self::MEDIA_NS, $video->media_description);
+        $writer->writeElement('media:description', $video->media_description);
 
         $writer->endElement();
         $writer->endElement();

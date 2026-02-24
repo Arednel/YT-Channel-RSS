@@ -7,5 +7,5 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', [YoutubeChannelController::class, 'index'])
     ->name('index');
 
-Route::get('/feeds/{youtubeChannel:youtube_id}', [YoutubeChannelController::class, 'feed'])
+Route::get('/feeds/{youtubeChannel:youtube_id}.xml', [YoutubeChannelController::class, 'feed'])
     ->name('feeds.show');

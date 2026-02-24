@@ -326,8 +326,8 @@ class YoutubeRssChannelsTable extends Component
         // Allow matching pasted YouTube URLs and local feed URLs against stored ids.
         $youtubeNeedle = preg_replace('#^https?://(www\.)?youtube\.com/#i', '', $search) ?? $search;
         $feedNeedle = preg_replace(
-            '#^' . preg_quote(rtrim((string) config('app.url'), '/'), '#') . '/feeds/#i',
-            '',
+            '#^' . preg_quote(rtrim((string) config('app.url'), '/') . '/feeds/', '#') . '(.+?)(?:\.xml)?$#i',
+            '$1',
             $search
         ) ?? $search;
 

@@ -259,7 +259,7 @@ class YoutubeChannel extends Model
 
     public function getRssUrlAttribute(): string
     {
-        return rtrim(config('app.url'), '/') . '/feeds/' . $this->youtube_id;
+        return rtrim(config('app.url'), '/') . '/feeds/' . $this->youtube_id . '.xml';
     }
 
     public function getYoutubeUrlAttribute(): string

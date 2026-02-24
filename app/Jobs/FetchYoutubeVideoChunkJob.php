@@ -320,14 +320,17 @@ class FetchYoutubeVideoChunkJob implements ShouldQueue
     private function resolvePublishedDate(array $video, bool $isUpcoming): ?Carbon
     {
         $uploadDate = $video['upload_date'] ?? null;
+        $releaseDate = $video['release_date'] ?? null;
         $timestamp = $video['timestamp'] ?? null;
         $releaseTimestamp = $video['release_timestamp'] ?? null;
 
         if ($isUpcoming) {
-            return $this->parseDate($uploadDate, $releaseTimestamp, $timestamp);
+            return $this->parseDate($releaseDate, $releaseTimestamp, $timestamp)
+                ?? $this->parseDate($uploadDate, $releaseTimestamp, $timestamp);
         }
 
-        return $this->parseDate($uploadDate, $timestamp, $releaseTimestamp);
+        return $this->parseDate($releaseDate, $timestamp, $releaseTimestamp)
+            ?? $this->parseDate($uploadDate, $timestamp, $releaseTimestamp);
     }
 
     private function isUpcomingVideo(array $video): bool

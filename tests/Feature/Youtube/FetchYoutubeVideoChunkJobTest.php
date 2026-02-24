@@ -79,6 +79,65 @@ class FetchYoutubeVideoChunkJobTest extends TestCase
         }
     }
 
+    public function test_it_prefers_release_date_over_upload_date_when_timestamps_are_missing(): void
+    {
+        $channel = YoutubeChannel::factory()
+            ->idle()
+            ->forYoutubeId('@chunk-release-date-' . uniqid())
+            ->create();
+
+        $baseDirectory = base_path('python/yt-dlp_jsons/' . $channel->youtube_id);
+        $sourceFile = 'video_id_chunks/chunk_00001.jsonl';
+        $sourcePath = $baseDirectory . '/' . $sourceFile;
+
+        File::ensureDirectoryExists(dirname($sourcePath));
+        File::put($sourcePath, json_encode(['id' => 'live-video-002'], JSON_THROW_ON_ERROR) . PHP_EOL);
+
+        $this->fakeYoutubeChunkProcessWithRowsByCall([
+            [[
+                'id' => 'live-video-002',
+                'title' => 'Upcoming Placeholder',
+                'live_status' => 'is_live',
+                'upload_date' => '20250101',
+                'thumbnail' => 'https://example.test/live-video-002.jpg',
+                'description' => 'upcoming',
+            ]],
+            [[
+                'id' => 'live-video-002',
+                'title' => 'Archived Live',
+                'live_status' => 'was_live',
+                'upload_date' => '20250101',
+                'release_date' => '20260223',
+                'modified_timestamp' => 1771866653,
+                'thumbnail' => 'https://example.test/live-video-002.jpg',
+                'description' => 'archived',
+            ]],
+        ]);
+
+        try {
+            $job = new FetchYoutubeVideoChunkJob(
+                channelId: $channel->id,
+                youtubeId: $channel->youtube_id,
+                chunkIndex: 0,
+                chunkSize: 1,
+                sourceFile: $sourceFile
+            );
+            $job->handle(app(YtDlpAutoUpdateManager::class));
+
+            $video = YoutubeVideo::query()->where('youtube_video_id', 'live-video-002')->firstOrFail();
+            $this->assertSame('2025-01-01', $video->published_date?->utc()->toDateString());
+
+            $job->handle(app(YtDlpAutoUpdateManager::class));
+
+            $video->refresh();
+            $this->assertFalse($video->is_upcoming);
+            $this->assertSame('2026-02-23', $video->published_date?->utc()->toDateString());
+            $this->assertSame('Archived Live', $video->video_title);
+        } finally {
+            File::deleteDirectory($baseDirectory);
+        }
+    }
+
     public function test_it_skips_restricted_like_rows_without_failing_chunk_job(): void
     {
         $channel = YoutubeChannel::factory()

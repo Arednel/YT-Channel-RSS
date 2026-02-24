@@ -17,7 +17,7 @@ Generate and serve Atom feeds for YouTube channels identified by handle (`@chann
 - `GET /`
   - Renders `resources/views/Index.blade.php`.
   - Mounts Livewire component `YoutubeRssDashboard` (which renders `YoutubeRssChannelsTable`).
-- `GET /feeds/{youtubeChannel:youtube_id}`
+- `GET /feeds/{youtubeChannel:youtube_id}.xml`
   - Serves prebuilt file: `storage/app/public/feeds/{youtube_id}.xml`.
   - Content type: `application/atom+xml; charset=UTF-8`.
   - Explicit no-cache headers, removes `ETag` and `Last-Modified`.
@@ -195,7 +195,7 @@ Key rules:
 - Normalizes timestamps to UTC.
 - Increments channel progress via `incrementVideoFetchProgress($chunkSize)`; counter is clamped to total.
 - Timestamp resolution in `FetchYoutubeVideoChunkJob`:
-  - `published_date`: prefers Unix `timestamp`, then `release_timestamp`, then date-only `upload_date` (`Ymd`, midnight UTC).
+  - `published_date`: prefers Unix `timestamp`, then `release_timestamp`, then date-only `release_date`, then `upload_date` (`Ymd`, midnight UTC).
   - `updated_date`: prefers `modified_timestamp` and falls back to `published_date`.
 
 ### 7) Batch Finalization

@@ -672,6 +672,7 @@ a {
     grid-template-columns: 2fr 1fr;
     gap: 24px;
     margin-bottom: 30px;
+    min-height: 400px;
 }
 
 /* ============================================
@@ -2192,6 +2193,7 @@ select.form-input option {
 @media (max-width: 1200px) {
     .content-grid {
         grid-template-columns: 1fr;
+        min-height: 400px;
     }
 
     .table-card {

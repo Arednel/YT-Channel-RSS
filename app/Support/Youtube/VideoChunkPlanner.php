@@ -69,6 +69,7 @@ class VideoChunkPlanner
                 'id' => $videoId,
                 'title' => $video['title'] ?? null,
                 'upload_date' => $video['upload_date'] ?? null,
+                'release_date' => $video['release_date'] ?? null,
                 'timestamp' => $video['timestamp'] ?? null,
                 'release_timestamp' => $video['release_timestamp'] ?? null,
                 'live_status' => $video['live_status'] ?? null,
@@ -107,7 +108,7 @@ class VideoChunkPlanner
     }
 
     /**
-     * @param list<array{id: string, title: mixed, upload_date: mixed, timestamp: mixed, release_timestamp: mixed, live_status: mixed, thumbnail: mixed, thumbnails: mixed, description: mixed}> $chunkEntries
+     * @param list<array{id: string, title: mixed, upload_date: mixed, release_date: mixed, timestamp: mixed, release_timestamp: mixed, live_status: mixed, thumbnail: mixed, thumbnails: mixed, description: mixed}> $chunkEntries
      * @param array{
      *   jobs: list<FetchYoutubeVideoChunkJob>,
      *   chunkCount: int,
@@ -138,7 +139,7 @@ class VideoChunkPlanner
     }
 
     /**
-     * @param list<array{id: string, title: mixed, upload_date: mixed, timestamp: mixed, release_timestamp: mixed, live_status: mixed, thumbnail: mixed, thumbnails: mixed, description: mixed}> $entries
+     * @param list<array{id: string, title: mixed, upload_date: mixed, release_date: mixed, timestamp: mixed, release_timestamp: mixed, live_status: mixed, thumbnail: mixed, thumbnails: mixed, description: mixed}> $entries
      * @param array{
      *   jobs: list<FetchYoutubeVideoChunkJob>,
      *   chunkCount: int,
@@ -220,6 +221,11 @@ class VideoChunkPlanner
         $releaseTimestamp = $this->parseTimestamp($video['release_timestamp'] ?? null);
         if ($releaseTimestamp instanceof Carbon) {
             return $releaseTimestamp;
+        }
+
+        $releaseDate = $this->parseUploadDate($video['release_date'] ?? null);
+        if ($releaseDate instanceof Carbon) {
+            return $releaseDate;
         }
 
         return $this->parseUploadDate($video['upload_date'] ?? null);

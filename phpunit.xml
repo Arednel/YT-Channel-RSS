@@ -32,5 +32,6 @@
         <env name="YOUTUBE_VIDEO_CHUNK_SIZE" value="10"/>
         <env name="YOUTUBE_TESTS_WITH_NETWORK" value="true"/>
         <env name="YOUTUBE_TEST_REAL_CHANNEL" value="https://www.youtube.com/@MateusGuimar%C3%A3es"/>
+        <env name="YOUTUBE_TEST_REAL_FEED_URL" value="https://www.youtube.com/feeds/videos.xml?channel_id=UCZXli3tyGCYn-FghmNJB7vw"/>
     </php>
 </phpunit>
