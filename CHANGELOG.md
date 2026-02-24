@@ -2,6 +2,12 @@
 
 ## Development
 
+* 2026-02-24 -- 0.5.7 Channel Reference Simplification
+  * Refactored `YoutubeChannelReference` internals and removed thin wrapper usage in call sites.
+  * Simplified channel add/duplicate checks in Livewire + model scope + sync conflict query logic.
+  * Aligned channel-id resolution in feed/sync flows with shared metadata normalization.
+  * Updated docs, UI wording, and related feature/unit tests for URL-only input and metadata fallback coverage.
+
 * 2026-02-18 -- 0.5.6 YouTube channel URL and Project name
   * Renamed project to "YT-Channel RSS"
   * Added support for UC* YouTube channel URLs and fix for unusual symbols

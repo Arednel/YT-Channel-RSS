@@ -6,7 +6,7 @@ Create `.env.testing` from `.env.testing.example` and set test DB credentials (`
 
 Keep these integration-test toggles in `phpunit.xml`:
 - `YOUTUBE_TESTS_WITH_NETWORK` (`true` by default; set `false` to disable integration tests that call YouTube)
-- `YOUTUBE_TEST_REAL_CHANNEL` (`@handle`, `channel/UC...`, or full YouTube URL)
+- `YOUTUBE_TEST_REAL_CHANNEL` (full YouTube channel URL, e.g. `https://youtube.com/@channel` or `https://youtube.com/channel/UC...`; `www.youtube.com` and `m.youtube.com` also supported)
 
 The suite mixes:
 - network-gated integration tests against real YouTube (`YOUTUBE_TESTS_WITH_NETWORK`)
@@ -92,7 +92,7 @@ pytest python/tests/test_channel_list.py
     - verifies no duplicate `youtube_videos` rows
     - verifies stable `last_video_id`
   - Feature: `YoutubeRssChannelsTableInputTest`:
-    - verifies component save flow accepts raw `@handle`, `UC...` URL input, and percent-encoded handles
+    - verifies component save flow accepts only YouTube channel URLs (`youtube.com`, `www.youtube.com`, `m.youtube.com`) in `/@handle...` and `/channel/UC...` forms and extracts normalized identifiers
     - verifies duplicate prevention for UC/handle-equivalent channels
   - Feature: `SyncYoutubeChannelQueuedWorkflowTest`:
     - real queued orchestration from `DispatchSyncYoutubeChannelJobAction` through chain + chunk batch
@@ -133,6 +133,7 @@ pytest python/tests/test_channel_list.py
     - renders `fetching videos (x out of x)` only for `fetching videos` status
   - Unit: `YoutubeChannelReferenceTest`:
     - verifies input normalization for handle/UC/url variants and canonical YouTube URL generation
+    - verifies metadata handle fallback from `uploader_url` and `channel_url` when `uploader_id` is missing
   - Unit: `YtDlpAutoUpdateManagerTest`:
     - validates failure-threshold trigger for `UpdateYtDlpJob`
     - ignores rate-limit-like errors for threshold counting

@@ -236,6 +236,61 @@ class RunYoutubeChannelSyncActionTest extends TestCase
         }
     }
 
+    public function test_it_promotes_to_handle_from_metadata_uploader_url_when_uploader_id_is_missing(): void
+    {
+        $initialChannelId = 'UCABCDEFGHIJKLMN_OPQRSTU';
+        $resolvedHandle = '@resolved-url-handle-' . uniqid();
+
+        $channel = YoutubeChannel::factory()
+            ->idle()
+            ->forYoutubeId($initialChannelId)
+            ->create([
+                'youtube_channel_id' => $initialChannelId,
+            ]);
+
+        $outputDirectory = base_path('python/yt-dlp_jsons/' . $initialChannelId);
+        $channelJsonPath = $outputDirectory . '/channel.json';
+        $videosJsonPath = $outputDirectory . '/videos.jsonl';
+
+        $this->fakeYoutubeChunkProcessFromSource(static fn (array $entry, string $videoId): ?array => null);
+
+        try {
+            $this->prepareChannelFetchArtifacts(
+                outputDirectory: $outputDirectory,
+                channelJsonPath: $channelJsonPath,
+                videosJsonPath: $videosJsonPath,
+                videos: [
+                    [
+                        'id' => 'resolved-url-video-001',
+                        'title' => 'Resolved URL Video 1',
+                        'timestamp' => 1767225600,
+                    ],
+                ],
+                channelPayload: [
+                    'channel_id' => $initialChannelId,
+                    'uploader_url' => 'https://www.youtube.com/' . $resolvedHandle . '/videos',
+                    'channel' => 'Resolved URL Channel Name',
+                ],
+            );
+
+            $didFetch = app(RunYoutubeChannelSyncAction::class)->fetchChannelInfoAndVideoList($channel->id);
+            $this->assertTrue($didFetch);
+
+            $channel->refresh();
+            $this->assertSame($initialChannelId, $channel->youtube_id);
+            $this->assertSame($initialChannelId, $channel->youtube_channel_id);
+
+            app(RunYoutubeChannelSyncAction::class)->syncIdentifiersFromPersistedMetadata($channel->id, true);
+
+            $channel->refresh();
+            $this->assertSame($resolvedHandle, $channel->youtube_id);
+            $this->assertSame($initialChannelId, $channel->youtube_channel_id);
+            $this->assertSame('https://www.youtube.com/' . $resolvedHandle, $channel->youtube_url);
+        } finally {
+            File::deleteDirectory($outputDirectory);
+        }
+    }
+
     public function test_it_rejects_newer_duplicate_channel_when_metadata_matches_existing_uc_identifier(): void
     {
         $resolvedChannelId = 'UCABCDEFGHIJKLMN_OPQRSTU';

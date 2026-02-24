@@ -62,7 +62,7 @@ Create `.env.testing` from template and set DB credentials:
 
 Then set integration-test toggles in `phpunit.xml`:
 - `YOUTUBE_TESTS_WITH_NETWORK` (`true` by default, set `false` to disable real network tests)
-- `YOUTUBE_TEST_REAL_CHANNEL` (`@handle`, `channel/UC...`, or full YouTube URL)
+- `YOUTUBE_TEST_REAL_CHANNEL` (full YouTube channel URL, e.g. `https://youtube.com/@channel` or `https://youtube.com/channel/UC...`; `www.youtube.com` and `m.youtube.com` also supported)
 
 ### Run Laravel / PHPUnit tests
 ```bash

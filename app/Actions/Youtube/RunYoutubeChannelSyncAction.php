@@ -295,8 +295,8 @@ class RunYoutubeChannelSyncAction
             return true;
         }
 
-        $preferredHandle = $this->resolvePreferredHandleFromMetadata($channelData);
-        $resolvedChannelId = $this->resolveChannelIdFromMetadata($channelData);
+        $preferredHandle = YoutubeChannelReference::resolvePreferredHandleFromMetadata($channelData);
+        $resolvedChannelId = YoutubeChannelReference::resolveChannelIdFromMetadata($channelData);
 
         if (! $this->ensureCanonicalChannelRecord($channel, $resolvedChannelId, $preferredHandle)) {
             return false;
@@ -365,10 +365,7 @@ class RunYoutubeChannelSyncAction
     {
         return YoutubeChannel::query()
             ->where('id', '!=', $channelId)
-            ->where(function (Builder $query) use ($identifier): void {
-                $query->where('youtube_id', $identifier)
-                    ->orWhere('youtube_channel_id', $identifier);
-            })
+            ->whereAny(['youtube_id', 'youtube_channel_id'], '=', $identifier)
             ->exists();
     }
 
@@ -382,20 +379,18 @@ class RunYoutubeChannelSyncAction
             return true;
         }
 
+        $youtubeIdCandidates = array_values(array_filter(
+            [$resolvedChannelId, $preferredHandle],
+            static fn (?string $identifier): bool => $identifier !== null
+        ));
+
         $conflicts = YoutubeChannel::query()
             ->where('id', '!=', $channel->id)
-            ->where(function (Builder $query) use ($resolvedChannelId, $preferredHandle): void {
-                if ($resolvedChannelId !== null) {
-                    $query->where('youtube_channel_id', $resolvedChannelId)
-                        ->orWhere('youtube_id', $resolvedChannelId);
-                }
+            ->where(function (Builder $query) use ($resolvedChannelId, $youtubeIdCandidates): void {
+                $query->whereIn('youtube_id', $youtubeIdCandidates);
 
-                if ($preferredHandle !== null) {
-                    if ($resolvedChannelId !== null) {
-                        $query->orWhere('youtube_id', $preferredHandle);
-                    } else {
-                        $query->where('youtube_id', $preferredHandle);
-                    }
+                if ($resolvedChannelId !== null) {
+                    $query->orWhere('youtube_channel_id', $resolvedChannelId);
                 }
             })
             ->orderBy('id')
@@ -438,14 +433,4 @@ class RunYoutubeChannelSyncAction
         return true;
     }
 
-    private function resolvePreferredHandleFromMetadata(array $channelData): ?string
-    {
-        return YoutubeChannelReference::normalizeHandle($channelData['uploader_id'] ?? null);
-    }
-
-    private function resolveChannelIdFromMetadata(array $channelData): ?string
-    {
-        return YoutubeChannelReference::normalizeChannelId($channelData['channel_id'] ?? null)
-            ?? YoutubeChannelReference::normalizeChannelId($channelData['id'] ?? null);
-    }
 }

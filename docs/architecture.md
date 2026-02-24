@@ -25,7 +25,9 @@ Generate and serve Atom feeds for YouTube channels identified by handle (`@chann
 ## UI Flow (Livewire)
 - Add channel:
   - Validates `channelUrl`.
-  - Normalizes supported input (`@handle`, `UC...`, YouTube URL, or local `/feeds/{id}` URL).
+  - Accepts only channel URLs in `https://youtube.com/...`, `https://www.youtube.com/...`, or `https://m.youtube.com/...` hosts, with `/@...` or `/channel/UC...` paths (including tail paths like `/videos`).
+  - Extracts canonical identifier from the URL and normalizes percent-encoded handles.
+  - URL parsing/normalization is centralized in `App\Support\Youtube\YoutubeChannelReference`.
   - Applies duplicate checks across both `youtube_id` and `youtube_channel_id`.
   - Creates `youtube_channels` row.
   - Calls `DispatchSyncYoutubeChannelJobAction`.
@@ -138,6 +140,7 @@ Key rules:
   3. Run Python channel fetch (`ChannelFetchRunner` -> `channel_fetch.py`).
   4. Read `channel.json` (if present), update `channel_name`, and resolve/store canonical ids:
      - store `youtube_channel_id` when metadata exposes `UC...`
+     - resolve preferred handle in order: `uploader_id`, then `uploader_url`, then `channel_url`
      - keep `youtube_id` unchanged in this phase (`allowHandleUpdate=false`)
      - resolve handle/UC conflicts by keeping one canonical DB row and deleting duplicates
   5. Validate `videos.jsonl`.

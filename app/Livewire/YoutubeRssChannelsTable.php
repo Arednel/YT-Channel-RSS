@@ -18,6 +18,7 @@ class YoutubeRssChannelsTable extends Component
 {
     /** @var list<string> */
     private const SORTABLE_COLUMNS = ['id', 'channel', 'link', 'rss_link', 'last_updated', 'status'];
+    private const CHANNEL_URL_MESSAGE = 'Use a YouTube channel link like https://youtube.com/@channel or https://youtube.com/channel/UC...';
 
     private YoutubeBatchManager $youtubeBatchManager;
     private DispatchSyncYoutubeChannelJobAction $dispatchSyncYoutubeChannelJob;
@@ -53,21 +54,31 @@ class YoutubeRssChannelsTable extends Component
                 'required',
                 'string',
                 'max:255',
-                function (string $attribute, mixed $value, \Closure $fail): void {
-                    if (! is_string($value) || YoutubeChannelReference::normalizeInput($value) === null) {
-                        $fail('Use a YouTube @handle URL, /channel/UC... URL, @handle, or UC... value.');
-                    }
-                },
+                'url:https',
+                'starts_with:https://youtube.com/,https://www.youtube.com/,https://m.youtube.com/',
+                // starts_with validates allowed hosts; regex validates supported channel path shapes.
+                'regex:/^https:\/\/[^\/]+\/(?:@[^\/?#\s]+|channel\/UC[A-Za-z0-9_-]{22})(?:[\/?#].*)?$/u',
             ],
             'deleteChannelId' => ['nullable', 'integer', 'exists:youtube_channels,id'],
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function messages(): array
+    {
+        return [
+            'channelUrl.url' => self::CHANNEL_URL_MESSAGE,
+            'channelUrl.starts_with' => self::CHANNEL_URL_MESSAGE,
+            'channelUrl.regex' => self::CHANNEL_URL_MESSAGE,
         ];
     }
 
     public function boot(
         YoutubeBatchManager $youtubeBatchManager,
         DispatchSyncYoutubeChannelJobAction $dispatchSyncYoutubeChannelJob
-    ): void
-    {
+    ): void {
         $this->youtubeBatchManager = $youtubeBatchManager;
         $this->dispatchSyncYoutubeChannelJob = $dispatchSyncYoutubeChannelJob;
     }
@@ -167,31 +178,18 @@ class YoutubeRssChannelsTable extends Component
 
     public function save(): void
     {
+        // Validate the add-channel input field only.
         $this->validateOnly('channelUrl');
 
-        $youtubeReference = $this->extractYoutubeReference($this->channelUrl);
+        $youtubeReference = YoutubeChannelReference::normalizeInput($this->channelUrl);
         if ($youtubeReference === null) {
-            $this->addError(
-                'channelUrl',
-                'Use a YouTube @handle URL, /channel/UC... URL, @handle, or UC... value.'
-            );
+            $this->addError('channelUrl', self::CHANNEL_URL_MESSAGE);
             return;
         }
 
         $youtubeId = $youtubeReference['youtube_id'];
         $youtubeChannelId = $youtubeReference['youtube_channel_id'];
-        $channelIdForDuplicateCheck = $youtubeChannelId
-            ?? (YoutubeChannelReference::isChannelId($youtubeId) ? $youtubeId : null);
-
-        $alreadyExists = YoutubeChannel::query()
-            ->where('youtube_id', $youtubeId);
-
-        if ($channelIdForDuplicateCheck !== null) {
-            $alreadyExists->orWhere('youtube_channel_id', $channelIdForDuplicateCheck)
-                ->orWhere('youtube_id', $channelIdForDuplicateCheck);
-        }
-
-        if ($alreadyExists->exists()) {
+        if (YoutubeChannel::query()->matchingReference($youtubeId, $youtubeChannelId)->exists()) {
             $this->addError('channelUrl', 'This channel is already added.');
             return;
         }
@@ -257,14 +255,6 @@ class YoutubeRssChannelsTable extends Component
     }
 
     /**
-     * @return array{youtube_id: string, youtube_channel_id: ?string}|null
-     */
-    private function extractYoutubeReference(string $url): ?array
-    {
-        return YoutubeChannelReference::normalizeInput($url);
-    }
-
-    /**
      * @param Collection<int, YoutubeChannel> $channels
      * @return Collection<int, YoutubeChannel>
      */
@@ -296,6 +286,7 @@ class YoutubeRssChannelsTable extends Component
     {
         $direction = $this->normalizeSortDirection($this->sortDirection);
 
+        // Each virtual column maps to one or more concrete DB columns.
         switch ($this->normalizeSortColumn($this->sortColumn)) {
             case 'channel':
                 $query
@@ -336,6 +327,7 @@ class YoutubeRssChannelsTable extends Component
         }
 
         $like = '%' . $search . '%';
+        // Allow matching pasted YouTube URLs and local feed URLs against stored ids.
         $youtubeNeedle = preg_replace('#^https?://(www\.)?youtube\.com/#i', '', $search) ?? $search;
         $feedNeedle = preg_replace(
             '#^' . preg_quote(rtrim((string) config('app.url'), '/'), '#') . '/feeds/#i',

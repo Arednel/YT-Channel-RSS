@@ -85,8 +85,7 @@
                             </div>
                         </td>
                         <td>
-                            <a href="{{ $channel->youtube_url }}" target="_blank"
-                                rel="noopener">
+                            <a href="{{ $channel->youtube_url }}" target="_blank" rel="noopener">
                                 {{ $channel->youtube_id }}
                             </a>
                         </td>
@@ -109,7 +108,8 @@
                         </td>
                         <td>
                             @if ($channel->updated_at_utc_iso && $channel->updated_at_utc_display)
-                                <time class="table-amount" data-local-time datetime="{{ $channel->updated_at_utc_iso }}">
+                                <time class="table-amount" data-local-time
+                                    datetime="{{ $channel->updated_at_utc_iso }}">
                                     {{ $channel->updated_at_utc_display }}
                                 </time>
                             @else
@@ -141,10 +141,11 @@
                 </div>
                 <form wire:submit.prevent="save">
                     <div class="form-group">
-                        <label class="form-label" for="channel-url">Channel URL</label>
+                        <label class="form-label" for="channel-url">YouTube Channel URL</label>
                         <input id="channel-url" class="form-input" type="text"
-                            placeholder="https://www.youtube.com/@channel or /channel/UC..." wire:model="channelUrl" autocomplete="off"
-                            required>
+                            placeholder="https://youtube.com/@channel or https://youtube.com/channel/UC..."
+                            wire:model="channelUrl"
+                            autocomplete="off" required>
                         @error('channelUrl')
                             <div class="form-error">{{ $message }}</div>
                         @enderror

@@ -240,6 +240,23 @@ class YoutubeChannel extends Model
         $query->notBusy();
     }
 
+    /**
+     * Match channels that represent the same YouTube identity across handle/UC forms.
+     */
+    #[Scope]
+    protected function matchingReference(Builder $query, string $youtubeId, ?string $youtubeChannelId = null): void
+    {
+        $ids = $youtubeChannelId === null ? [$youtubeId] : [$youtubeId, $youtubeChannelId];
+
+        $query->where(function (Builder $q) use ($ids, $youtubeChannelId): void {
+            $q->whereIn('youtube_id', $ids);
+
+            if ($youtubeChannelId !== null) {
+                $q->orWhere('youtube_channel_id', $youtubeChannelId);
+            }
+        });
+    }
+
     public function getRssUrlAttribute(): string
     {
         return rtrim(config('app.url'), '/') . '/feeds/' . $this->youtube_id;

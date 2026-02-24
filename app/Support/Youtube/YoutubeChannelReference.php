@@ -4,6 +4,13 @@ namespace App\Support\Youtube;
 
 final class YoutubeChannelReference
 {
+    /** @var list<string> */
+    private const YOUTUBE_HOSTS = [
+        'youtube.com',
+        'www.youtube.com',
+        'm.youtube.com',
+    ];
+
     /**
      * @return array{youtube_id: string, youtube_channel_id: ?string}|null
      */
@@ -48,6 +55,28 @@ final class YoutubeChannelReference
         }
 
         return null;
+    }
+
+    public static function resolvePreferredHandleFromMetadata(array $channelData): ?string
+    {
+        foreach (['uploader_id', 'uploader_url', 'channel_url'] as $field) {
+            $value = $channelData[$field] ?? null;
+            $handle = $field === 'uploader_id'
+                ? self::normalizeHandle($value)
+                : self::extractHandleFromMetadataUrl($value);
+
+            if ($handle !== null) {
+                return $handle;
+            }
+        }
+
+        return null;
+    }
+
+    public static function resolveChannelIdFromMetadata(array $channelData): ?string
+    {
+        return self::normalizeChannelId($channelData['channel_id'] ?? null)
+            ?? self::normalizeChannelId($channelData['id'] ?? null);
     }
 
     public static function normalizeHandle(mixed $value): ?string
@@ -109,11 +138,6 @@ final class YoutubeChannelReference
         return 'https://www.youtube.com/' . self::canonicalPath($youtubeId, $youtubeChannelId);
     }
 
-    public static function isChannelId(string $value): bool
-    {
-        return self::normalizeChannelId($value) !== null;
-    }
-
     /**
      * @return array{youtube_id: string, youtube_channel_id: ?string}|null
      */
@@ -128,7 +152,7 @@ final class YoutubeChannelReference
         $path = self::decode((string) ($parts['path'] ?? ''));
         $segments = array_values(array_filter(
             explode('/', trim($path, '/')),
-            static fn (string $segment): bool => $segment !== ''
+            static fn(string $segment): bool => $segment !== ''
         ));
 
         $appHost = strtolower((string) parse_url((string) config('app.url'), PHP_URL_HOST));
@@ -136,29 +160,13 @@ final class YoutubeChannelReference
             return self::normalizeInput($segments[1]);
         }
 
-        if (! in_array($host, ['youtube.com', 'www.youtube.com', 'm.youtube.com'], true)) {
+        if (! self::isYoutubeHost($host)) {
             return null;
         }
 
-        $firstSegment = $segments[0] ?? '';
-        $secondSegment = $segments[1] ?? '';
-
-        $handle = self::normalizeHandle($firstSegment);
-        if ($handle !== null) {
-            return [
-                'youtube_id' => $handle,
-                'youtube_channel_id' => null,
-            ];
-        }
-
-        if (strtolower($firstSegment) === 'channel') {
-            $channelId = self::normalizeChannelId($secondSegment);
-            if ($channelId !== null) {
-                return [
-                    'youtube_id' => $channelId,
-                    'youtube_channel_id' => $channelId,
-                ];
-            }
+        $strictReference = self::extractReferenceFromYoutubePath($path);
+        if ($strictReference !== null) {
+            return $strictReference;
         }
 
         parse_str((string) ($parts['query'] ?? ''), $queryParams);
@@ -181,6 +189,59 @@ final class YoutubeChannelReference
         }
 
         return null;
+    }
+
+    /**
+     * @return array{youtube_id: string, youtube_channel_id: ?string}|null
+     */
+    private static function extractReferenceFromYoutubePath(string $path): ?array
+    {
+        $segments = array_values(array_filter(
+            explode('/', trim($path, '/')),
+            static fn(string $segment): bool => $segment !== ''
+        ));
+
+        $firstSegment = $segments[0] ?? '';
+        $handle = self::normalizeHandle($firstSegment);
+        if ($handle !== null) {
+            return [
+                'youtube_id' => $handle,
+                'youtube_channel_id' => null,
+            ];
+        }
+
+        if (strtolower($firstSegment) !== 'channel') {
+            return null;
+        }
+
+        $channelId = self::normalizeChannelId($segments[1] ?? '');
+        if ($channelId === null) {
+            return null;
+        }
+
+        return [
+            'youtube_id' => $channelId,
+            'youtube_channel_id' => $channelId,
+        ];
+    }
+
+    private static function isYoutubeHost(string $host): bool
+    {
+        return in_array($host, self::YOUTUBE_HOSTS, true);
+    }
+
+    private static function extractHandleFromMetadataUrl(mixed $value): ?string
+    {
+        if (! is_string($value)) {
+            return null;
+        }
+
+        $normalized = self::normalizeInput($value);
+        if (! is_array($normalized)) {
+            return null;
+        }
+
+        return self::normalizeHandle($normalized['youtube_id'] ?? null);
     }
 
     private static function clean(string $value): string

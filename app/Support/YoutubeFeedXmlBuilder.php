@@ -109,22 +109,20 @@ class YoutubeFeedXmlBuilder
      */
     private function resolveChannelIdentity(YoutubeChannel $channel): array
     {
-        $channelId = YoutubeChannelReference::normalizeChannelId((string) ($channel->youtube_channel_id ?? ''));
+        $channelId = YoutubeChannelReference::normalizeChannelId(
+            is_string($channel->youtube_channel_id) ? $channel->youtube_channel_id : null
+        ) ?? YoutubeChannelReference::normalizeChannelId(ltrim((string) $channel->youtube_id, '/'));
         $channelJsonPath = base_path('python/yt-dlp_jsons/' . $channel->youtube_id . '/channel.json');
 
         if (File::exists($channelJsonPath)) {
             try {
                 $payload = json_decode(File::get($channelJsonPath), true, 512, JSON_THROW_ON_ERROR);
-                $rawId = $payload['channel_id'] ?? $payload['id'] ?? null;
-                $channelId = YoutubeChannelReference::normalizeChannelId($rawId) ?? $channelId;
+                if (is_array($payload)) {
+                    $channelId = YoutubeChannelReference::resolveChannelIdFromMetadata($payload) ?? $channelId;
+                }
             } catch (\JsonException) {
                 // Keep fallback identity when channel.json is unreadable.
             }
-        }
-
-        if ($channelId === null) {
-            $youtubeId = ltrim($channel->youtube_id, '/');
-            $channelId = YoutubeChannelReference::normalizeChannelId($youtubeId);
         }
 
         if ($channelId !== null) {
