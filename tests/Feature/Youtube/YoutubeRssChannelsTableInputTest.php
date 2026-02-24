@@ -24,7 +24,7 @@ class YoutubeRssChannelsTableInputTest extends TestCase
 
         $component = $this->makeComponent();
         $component->channelUrl = 'https://youtube.com/@MateusGuimar%C3%A3es/videos';
-        $component->save();
+        $component->save(app(DispatchSyncYoutubeChannelJobAction::class));
 
         $this->assertFalse($component->getErrorBag()->has('channelUrl'));
 
@@ -44,7 +44,7 @@ class YoutubeRssChannelsTableInputTest extends TestCase
 
         $component = $this->makeComponent();
         $component->channelUrl = 'https://www.youtube.com/channel/' . $channelId;
-        $component->save();
+        $component->save(app(DispatchSyncYoutubeChannelJobAction::class));
 
         $this->assertFalse($component->getErrorBag()->has('channelUrl'));
 
@@ -69,7 +69,7 @@ class YoutubeRssChannelsTableInputTest extends TestCase
 
         $component = $this->makeComponent();
         $component->channelUrl = 'https://www.youtube.com/channel/' . $channelId;
-        $component->save();
+        $component->save(app(DispatchSyncYoutubeChannelJobAction::class));
 
         $this->assertTrue($component->getErrorBag()->has('channelUrl'));
 
@@ -86,7 +86,7 @@ class YoutubeRssChannelsTableInputTest extends TestCase
         $component = $this->makeComponent();
         $component->channelUrl = $input;
         try {
-            $component->save();
+            $component->save(app(DispatchSyncYoutubeChannelJobAction::class));
             $this->fail('Expected channelUrl validation to fail for unsupported input: ' . $input);
         } catch (ValidationException $exception) {
             $this->assertArrayHasKey('channelUrl', $exception->errors());
