@@ -2,6 +2,9 @@
 
 ## Development
 
+* 2026-02-24 -- 0.5.8 Simplified Livewire sync dispatch
+  * Simplified Livewire sync dispatch usage by calling `DispatchSyncYoutubeChannelJobAction` directly in `save()`.
+
 * 2026-02-24 -- 0.5.7 Channel Reference Simplification
   * Refactored `YoutubeChannelReference` internals and removed thin wrapper usage in call sites.
   * Simplified channel add/duplicate checks in Livewire + model scope + sync conflict query logic.

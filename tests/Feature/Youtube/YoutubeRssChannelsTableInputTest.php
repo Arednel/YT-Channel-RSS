@@ -131,10 +131,7 @@ class YoutubeRssChannelsTableInputTest extends TestCase
     private function makeComponent(): YoutubeRssChannelsTable
     {
         $component = app(YoutubeRssChannelsTable::class);
-        $component->boot(
-            app(YoutubeBatchManager::class),
-            app(DispatchSyncYoutubeChannelJobAction::class),
-        );
+        $component->boot(app(YoutubeBatchManager::class));
 
         return $component;
     }

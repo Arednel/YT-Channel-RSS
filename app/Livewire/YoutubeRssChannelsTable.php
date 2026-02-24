@@ -21,7 +21,6 @@ class YoutubeRssChannelsTable extends Component
     private const CHANNEL_URL_MESSAGE = 'Use a YouTube channel link like https://youtube.com/@channel or https://youtube.com/channel/UC...';
 
     private YoutubeBatchManager $youtubeBatchManager;
-    private DispatchSyncYoutubeChannelJobAction $dispatchSyncYoutubeChannelJob;
 
     #[Modelable]
     public string $search = '';
@@ -75,12 +74,9 @@ class YoutubeRssChannelsTable extends Component
         ];
     }
 
-    public function boot(
-        YoutubeBatchManager $youtubeBatchManager,
-        DispatchSyncYoutubeChannelJobAction $dispatchSyncYoutubeChannelJob
-    ): void {
+    public function boot(YoutubeBatchManager $youtubeBatchManager): void
+    {
         $this->youtubeBatchManager = $youtubeBatchManager;
-        $this->dispatchSyncYoutubeChannelJob = $dispatchSyncYoutubeChannelJob;
     }
 
     public function render(): View
@@ -176,7 +172,7 @@ class YoutubeRssChannelsTable extends Component
         $this->confirmDelete = false;
     }
 
-    public function save(): void
+    public function save(DispatchSyncYoutubeChannelJobAction $dispatchSyncYoutubeChannelJob): void
     {
         // Validate the add-channel input field only.
         $this->validateOnly('channelUrl');
@@ -198,7 +194,7 @@ class YoutubeRssChannelsTable extends Component
             'youtube_id' => $youtubeId,
             'youtube_channel_id' => $youtubeChannelId,
         ]);
-        $this->dispatchSyncYoutubeChannelJob->handle($channel);
+        $dispatchSyncYoutubeChannelJob->handle($channel);
 
         $this->showModal = false;
         $this->channelUrl = '';
