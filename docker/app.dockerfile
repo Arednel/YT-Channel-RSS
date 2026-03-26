@@ -26,7 +26,6 @@ COPY . /var/www/youtube_rss
 # Create directories
 RUN mkdir -p \
     /var/www/youtube_rss/storage/app/public \
-    /var/www/youtube_rss/storage/app/Works \
     /var/www/youtube_rss/storage/framework/cache \
     /var/www/youtube_rss/storage/framework/cache/data \
     /var/www/youtube_rss/storage/framework/sessions \
