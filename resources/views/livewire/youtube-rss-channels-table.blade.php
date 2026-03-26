@@ -1,4 +1,4 @@
-<div class="glass-card table-card" wire:poll.250ms>
+<div class="glass-card table-card" wire:poll.500ms>
     <div class="card-header">
         <div>
             <h2 class="card-title">Channels</h2>
@@ -144,8 +144,7 @@
                         <label class="form-label" for="channel-url">YouTube Channel URL</label>
                         <input id="channel-url" class="form-input" type="text"
                             placeholder="https://youtube.com/@channel or https://youtube.com/channel/UC..."
-                            wire:model="channelUrl"
-                            autocomplete="off" required>
+                            wire:model="channelUrl" autocomplete="off" required>
                         @error('channelUrl')
                             <div class="form-error">{{ $message }}</div>
                         @enderror

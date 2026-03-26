@@ -18,6 +18,19 @@ From `.env.example`:
 - `CACHE_STORE=database`: used by maintenance interval gating.
 - `FILESYSTEM_DISK=local`: default disk; feed writing explicitly uses `public` disk.
 
+## Docker Compose Environment
+Current Docker runtime uses `docker/.env.docker` for:
+- `app`
+- `queue`
+- `scheduler`
+- `database`
+- `pma`
+
+Important behavior:
+- `app` uses `docker/docker-app-entrypoint.sh`, which runs `php artisan migrate` before `php-fpm`.
+- `queue` and `scheduler` are separate services in Compose and do not need to be started manually inside the `app` container.
+- `.dockerignore` excludes `.env` and `.env.testing`, so containerized test runs do not automatically see host-local test env files unless you explicitly pass overrides.
+
 ## YouTube-Specific Environment
 Mapped in `config/youtube.php`.
 

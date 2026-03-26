@@ -13,6 +13,32 @@ Generate and serve Atom feeds for YouTube channels identified by handle (`@chann
 - Queue: Laravel database queue + batching
 - Python 3 (tested with Python 3.10.11) `yt-dlp` wrappers (`python/yt-dlp`)
 
+## Docker Compose Topology
+Current containerized runtime is split by responsibility:
+- `app`
+  - PHP-FPM service built from `docker/app.dockerfile`.
+  - Uses entrypoint `docker/docker-app-entrypoint.sh`.
+  - Runs `php artisan migrate` during container startup, then starts `php-fpm`.
+- `queue`
+  - Reuses the same PHP/Laravel image as `app`.
+  - Runs `php artisan queue:work`.
+- `scheduler`
+  - Reuses the same PHP/Laravel image as `app`.
+  - Runs `php artisan schedule:work`.
+- `web`
+  - Nginx service built from `docker/web.dockerfile`.
+  - Serves `/public` and proxies PHP requests to `app:9000`.
+- `database`
+  - MySQL 8.0.
+- `pma`
+  - phpMyAdmin.
+
+Shared writable Docker volumes are mounted for:
+- `python/yt-dlp_jsons`
+- `storage/app`
+- `storage/framework`
+- `storage/logs`
+
 ## Main HTTP Endpoints
 - `GET /`
   - Renders `resources/views/Index.blade.php`.

@@ -2,6 +2,11 @@
 
 ## Development
 
+* 2026-03-26 -- 0.6.0 Docker Compose and fixes
+  * Added docker-compose Quick Start
+  * Fixed first time job dispatch
+  * Changed wirepoll of the table to 500ms (was 250ms)
+
 * 2026-02-24 -- 0.5.9 Refactoring and improvements
   * Fixed case of overlapping modal window if there is too few channels
   * Updated YoutubeFeedXmlBuilder to create XML that are closer to real YouTube XML and removed `resolveChannelIdentity()` function

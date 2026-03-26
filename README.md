@@ -4,7 +4,29 @@ Laravel application that creates per-channel RSS feeds from YouTube using [yt-dl
 
 Recommended use case: creating RSS feed for [FreshRSS](https://github.com/FreshRSS/FreshRSS) with [Youlag](https://github.com/civilblur/youlag) extension.
 
-## Quick Start
+## Quick Start (requires [Git](https://git-scm.com) and [Docker Compose](https://docs.docker.com/compose))
+
+### 1) Run those commands
+
+```bash
+git clone https://github.com/Arednel/YT-Channel-RSS.git
+
+cd YT-Channel-RSS
+
+docker compose --env-file docker/.env.docker up --build -d
+```
+
+### 2) After startup
+- YT-Channel RSS available at: `http://localhost:8080`
+- phpMyAdmin available at: `http://localhost:8888`
+
+## Manual installation process
+
+### Requirements
+- PHP 8.3
+- Composer
+- MySQL 8
+- [Python 3.10.11](https://www.python.org/downloads/release/python-31011) (tested with this version) and [pip](https://pypi.org/project/pip)
 
 ### 1) Install PHP dependencies and migrate database
 ```bash
@@ -13,35 +35,28 @@ php artisan key:generate
 php artisan migrate
 ```
 
-### 2) Install Python dependencies (venv)
+### 2) Create and activate the venv:
 ```bash
 python -m venv python/venv
+```
 
-# Windows
-python\venv\Scripts\activate
-# Linux/macOS
-source python/venv/bin/activate
+Activate it with:
+- Windows: `python\venv\Scripts\activate`
+- Linux/macOS: `source python/venv/bin/activate`
 
+### 3) Install Python packages:
+
+```bash
 pip install -r python/requirements.txt
 ```
 
-### 2.1) Install test dependencies (optional)
-```bash
-# Windows
-python\venv\Scripts\activate 
-# Linux/macOS
-source python/venv/bin/activate 
-
-pip install -r python/requirements-dev.txt
-```
-
-### 3) Run workers
+### 4) Run workers
 ```bash
 php artisan queue:work
 php artisan schedule:work
 ```
 
-Manual maintenance:
+## Manual maintenance:
 ```bash
 php artisan youtube:maintenance
 php artisan youtube:maintenance --channel-id=1
@@ -55,10 +70,10 @@ php artisan youtube:yt-dlp:update --force
 - Update job always targets `python/venv` yt-dlp and fails if venv Python is missing.
 - Configure behavior with `YOUTUBE_YT_DLP_*` variables in `.env`.
 
-## Tests
+## Running tests
 
 ### Configure test environment
-Create `.env.testing` from template and set DB credentials:
+Create `.env.testing` from `.env.testing.example`, set test DB credentials
 
 Then set integration-test toggles in `phpunit.xml`:
 - `YOUTUBE_TESTS_WITH_NETWORK` (`true` by default, set `false` to disable real network tests)
@@ -76,12 +91,18 @@ php artisan test --filter=RunYoutubeChannelSyncActionTest
 ```
 
 ### Run Python pytest suite
-```bash
-# Windows
-python\venv\Scripts\activate 
-# Linux/macOS
-source python/venv/bin/activate 
 
+Activate venv with:
+- Windows: `python\venv\Scripts\activate`
+- Linux/macOS: `source python/venv/bin/activate`
+
+Install Python test dependencies:
+```bash
+pip install -r python/requirements-dev.txt
+```
+
+Run tests:
+```bash
 pytest
 ```
 
@@ -91,7 +112,7 @@ pytest -m integration
 ```
 
 ## Documentation
-- `docs/architecture.md`
-- `docs/configuration.md`
-- `docs/operations.md`
-- `docs/testing.md`
+- `docs/CONFIGURATION.md`
+- `docs/ARCHITECTURE.md`
+- `docs/TESTING.md`
+- `docs/OPERATIONS.md`

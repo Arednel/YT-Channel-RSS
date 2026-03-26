@@ -75,4 +75,35 @@ class DispatchSyncYoutubeChannelJobActionTest extends TestCase
         $this->assertTrue($lock->acquire($job));
         $lock->release($job);
     }
+
+    public function test_it_restores_idle_status_for_a_newly_created_channel_when_dispatch_fails(): void
+    {
+        $channel = YoutubeChannel::query()->create([
+            'youtube_id' => '@dispatch-failure-new-' . uniqid(),
+            'youtube_channel_id' => null,
+        ]);
+
+        $this->assertNull($channel->status);
+
+        $dispatcher = $this->mock(QueueingDispatcher::class);
+        $dispatcher->shouldReceive('dispatchToQueue')
+            ->once()
+            ->andThrow(new \RuntimeException('queue unavailable'));
+
+        try {
+            app(DispatchSyncYoutubeChannelJobAction::class)->handle($channel);
+            $this->fail('Expected runtime exception was not thrown.');
+        } catch (\RuntimeException $exception) {
+            $this->assertSame('queue unavailable', $exception->getMessage());
+        }
+
+        $channel->refresh();
+        $this->assertTrue($channel->hasStatus(YoutubeChannelStatus::Idle));
+        $this->assertNull($channel->last_error);
+
+        $job = new SyncYoutubeChannelJob($channel->id);
+        $lock = new UniqueLock(app(CacheRepository::class));
+        $this->assertTrue($lock->acquire($job));
+        $lock->release($job);
+    }
 }

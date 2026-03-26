@@ -2,6 +2,7 @@
 
 namespace App\Actions\Youtube;
 
+use App\Enums\YoutubeChannelStatus;
 use App\Jobs\SyncYoutubeChannelJob;
 use App\Models\YoutubeChannel;
 use Illuminate\Bus\UniqueLock;
@@ -22,6 +23,8 @@ class DispatchSyncYoutubeChannelJobAction
      */
     public function handle(YoutubeChannel $channel): bool
     {
+        $channel->refresh();
+
         $job = new SyncYoutubeChannelJob($channel->id);
         $lock = new UniqueLock($this->cacheRepository);
 
@@ -34,7 +37,7 @@ class DispatchSyncYoutubeChannelJobAction
             return false;
         }
 
-        $previousStatus = $channel->status;
+        $previousStatus = $channel->resolvedStatus() ?? YoutubeChannelStatus::Idle;
         $previousLastError = $channel->last_error;
         $previousVideoFetchProgressCurrent = $channel->video_fetch_progress_current;
         $previousVideoFetchProgressTotal = $channel->video_fetch_progress_total;

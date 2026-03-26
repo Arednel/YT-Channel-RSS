@@ -29,6 +29,21 @@ Install Python test dependencies when running pytest:
 pip install -r python/requirements-dev.txt
 ```
 
+## Docker Compose Runtime
+
+### Start the full stack
+```bash
+docker compose --env-file docker/.env.docker up --build -d
+```
+
+Current Compose services:
+- `app`: runs migrations during startup and then serves PHP-FPM.
+- `queue`: runs `php artisan queue:work`.
+- `scheduler`: runs `php artisan schedule:work`.
+- `web`: Nginx reverse proxy on port `8080`.
+- `database`: MySQL 8.0.
+- `pma`: phpMyAdmin on port `8888`.
+
 ## Day-to-Day Runtime
 
 ### Queue worker
@@ -45,6 +60,9 @@ php artisan schedule:work
 ```bash
 composer dev
 ```
+
+### Docker note
+When using Compose, the queue worker and scheduler are already separate services. You do not need to run `queue:work` or `schedule:work` manually inside the `app` container.
 
 ### yt-dlp auto-update behavior
 - Weekly: scheduler dispatches `UpdateYtDlpJob` based on `YOUTUBE_YT_DLP_WEEKLY_UPDATE_DAY` / `YOUTUBE_YT_DLP_WEEKLY_UPDATE_TIME`.
