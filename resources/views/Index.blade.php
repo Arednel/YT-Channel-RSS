@@ -10,20 +10,21 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap"
         rel="stylesheet">
-    <link rel="stylesheet" href="{{ asset('css/templatemo-glass-admin-style.css') }}">
+    <link rel="stylesheet"
+        href="{{ asset('css/templatemo-glass-admin-style.css') }}?v={{ filemtime(public_path('css/templatemo-glass-admin-style.css')) }}">
     @livewireStyles
 </head>
 
 <body>
-    @livewire('youtube-rss-dashboard')
+    @livewire('youtube-rss-channels')
 
-    <footer class="site-footer">
-        <p>Copyright © 2026</p>
-    </footer>
+    <x-site-footer />
 
-    <script src="{{ asset('js/templatemo-glass-admin-script.js') }}"></script>
-    <script src="{{ asset('js/rss-copy-to-clipboard.js') }}"></script>
-    <script src="{{ asset('js/localize-datetime.js') }}"></script>
+    <script
+        src="{{ asset('js/templatemo-glass-admin-script.js') }}?v={{ filemtime(public_path('js/templatemo-glass-admin-script.js')) }}"></script>
+    <script
+        src="{{ asset('js/rss-copy-to-clipboard.js') }}?v={{ filemtime(public_path('js/rss-copy-to-clipboard.js')) }}"></script>
+    <script src="{{ asset('js/localize-datetime.js') }}?v={{ filemtime(public_path('js/localize-datetime.js')) }}"></script>
     @livewireScripts
 </body>
 

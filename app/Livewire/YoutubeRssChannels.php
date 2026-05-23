@@ -6,7 +6,7 @@ use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 
-class YoutubeRssDashboard extends Component
+class YoutubeRssChannels extends Component
 {
     #[Url(as: 'search', except: '')]
     public string $search = '';
@@ -23,7 +23,7 @@ class YoutubeRssDashboard extends Component
 
     public function render(): View
     {
-        return view('livewire.youtube-rss-dashboard');
+        return view('livewire.youtube-rss-channels');
     }
 
     private function normalizeSearch(string $search): string

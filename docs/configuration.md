@@ -1,35 +1,113 @@
 # Configuration
 
-## Runtime Requirements
-- PHP `^8.2`
-- Laravel `^12.0`
-- Python 3 (project has been tested with Python 3.10.11)
-- Python package: `yt-dlp[default,deno]` (`python/requirements.txt`)
-- Python test package: `pytest` (`python/requirements-dev.txt`)
-- Database:
-  - App runtime defaults to MySQL in `.env.example`
-  - Queue driver defaults to `database`
+## Environment Files
+- `.env`: local/manual runtime
+- `.env.example`: template for `.env`
+- `.env.testing`: local test runtime
+- `.env.testing.example`: template for `.env.testing`
+- `docker/.env.docker`: Docker Compose runtime for `app`, `queue`, `scheduler`, `database`, and `pma`
+- `docker/.env.testing.docker`: Docker Compose runtime for the one-off `tests` service
 
-## Core Laravel Environment
-From `.env.example`:
-- `APP_URL`: base URL used for RSS link generation.
-- `DB_*`: primary DB settings.
-- `QUEUE_CONNECTION=database`: required for queued jobs and batching tables.
-- `CACHE_STORE=database`: used by maintenance interval gating.
-- `FILESYSTEM_DISK=local`: default disk; feed writing explicitly uses `public` disk.
+## Simple Docker Setup
+Run from the project root:
+- `docker compose --env-file docker/.env.docker up --build -d`
 
-## Docker Compose Environment
-Current Docker runtime uses `docker/.env.docker` for:
-- `app`
-- `queue`
-- `scheduler`
-- `database`
-- `pma`
+This path:
+- builds the PHP 8.3 app image from `docker/app.dockerfile`
+- installs Composer dependencies and the Python `yt-dlp` venv inside the app image
+- builds the Nginx image from `docker/web.dockerfile`
+- starts MySQL 8, the queue worker, scheduler worker, Nginx, and phpMyAdmin
+- keeps the Docker test service behind the `test` Compose profile
+- runs `php artisan migrate` through `docker/docker-app-entrypoint.sh`
 
-Important behavior:
-- `app` uses `docker/docker-app-entrypoint.sh`, which runs `php artisan migrate` before `php-fpm`.
-- `queue` and `scheduler` are separate services in Compose and do not need to be started manually inside the `app` container.
-- `.dockerignore` excludes `.env` and `.env.testing`, so containerized test runs do not automatically see host-local test env files unless you explicitly pass overrides.
+Access points:
+- Channels page: `http://localhost:8080`
+- Options page: `http://localhost:8080/options`
+- phpMyAdmin: `http://localhost:8888`
+
+## Required Local Setup
+1. Create `.env` from `.env.example` if it does not already exist.
+2. Install PHP dependencies:
+   - `composer install`
+3. Configure app key:
+   - `php artisan key:generate`
+4. Run migrations:
+   - `php artisan migrate`
+5. Create Python venv and install fetcher dependencies:
+   - `python -m venv python/venv`
+   - activate venv
+   - `pip install -r python/requirements.txt`
+
+## Database Settings
+Main DB settings are in:
+- `.env` for local/manual runtime
+- `docker/.env.docker` for Docker Compose runtime
+- `docker/.env.testing.docker` for Docker Compose test runtime
+
+Relevant variables:
+- `DB_CONNECTION`
+- `DB_HOST`
+- `DB_PORT`
+- `DB_DATABASE`
+- `DB_USERNAME`
+- `DB_PASSWORD`
+
+Docker database services:
+- `database` stores normal app data in the `dbdata` Docker volume
+- `database_test` stores test data in the `dbdata_test` Docker volume and is used only by the `tests` service
+
+## Queue and Scheduler
+Queued channel sync, video chunks, feed builds, deletes, and yt-dlp updates use Laravel's database queue.
+
+Relevant variables:
+- `QUEUE_CONNECTION=database`
+- `CACHE_STORE=database`
+
+Run these from the project root for local/manual runtime:
+```bash
+php artisan queue:work
+php artisan schedule:work
+```
+
+When using Docker Compose, `queue` and `scheduler` are separate services and do not need to be started manually inside the `app` container.
+
+Optional local dev aggregate command:
+```bash
+composer dev
+```
+
+## Manual Maintenance Commands
+Run maintenance for eligible channels:
+```bash
+php artisan youtube:maintenance
+```
+
+Run maintenance for one channel id:
+```bash
+php artisan youtube:maintenance --channel-id=123
+```
+
+Force scheduled maintenance behavior and bypass the interval gate:
+```bash
+php artisan youtube:maintenance --scheduled --force
+```
+
+Run yt-dlp update now:
+```bash
+php artisan youtube:yt-dlp:update
+php artisan youtube:yt-dlp:update --force
+php artisan youtube:yt-dlp:update --queued
+```
+
+## App Options
+The `options` table stores app-level settings as scalar string values keyed by `options.key`.
+
+- `channels_per_page`
+  - Controls how many channels the list renders per page.
+  - Default: `100`.
+  - Fixed choices: `10`, `25`, `50`, `100`, `250`, `500`, `1000`.
+  - The Options page also accepts a custom positive integer.
+  - `unlimited` disables pagination links and renders every matching channel.
 
 ## YouTube-Specific Environment
 Mapped in `config/youtube.php`.

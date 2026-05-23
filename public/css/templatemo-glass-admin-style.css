@@ -1,10 +1,4 @@
 /* ============================================
-   TemplateMo 3D Glassmorphism Dashboard
-   https://templatemo.com
-   CSS Stylesheet
-============================================ */
-
-/* ============================================
    CSS CUSTOM PROPERTIES
 ============================================ */
 :root {
@@ -216,7 +210,7 @@ a {
 /* ============================================
    LAYOUT STRUCTURE
 ============================================ */
-.dashboard {
+.app-shell {
     display: flex;
     min-height: 100vh;
 }
@@ -477,6 +471,8 @@ a {
     width: 20px;
     height: 20px;
     color: var(--text-muted);
+    pointer-events: none;
+    z-index: 1;
 }
 
 .nav-btn {
@@ -549,15 +545,6 @@ a {
     box-shadow:
         0 25px 50px -12px var(--glass-shadow),
         0 0 40px rgba(52, 211, 153, 0.1);
-}
-
-/* 3D Tilt Effect */
-.glass-card-3d {
-    transition: transform 0.4s cubic-bezier(0.03, 0.98, 0.52, 0.99);
-}
-
-.glass-card-3d:hover {
-    transform: rotateX(5deg) rotateY(-5deg) translateZ(10px);
 }
 
 /* ============================================
@@ -1081,6 +1068,68 @@ a {
     font-size: 14px;
     color: var(--text-secondary);
     border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.channel-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 18px;
+    padding-top: 18px;
+    border-top: 1px solid var(--glass-border);
+}
+
+.channel-pagination__summary {
+    color: var(--text-muted);
+    font-size: 13px;
+}
+
+.channel-pagination__controls {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.channel-pagination__controls button,
+.channel-pagination__ellipsis,
+.channel-pagination__page {
+    min-width: 34px;
+    min-height: 34px;
+    padding: 7px 10px;
+    border: 1px solid var(--glass-border);
+    border-radius: 8px;
+    background: var(--glass-bg);
+    color: var(--text-secondary);
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    line-height: 1;
+}
+
+.channel-pagination__controls button {
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.channel-pagination__controls button:hover,
+.channel-pagination__page.is-active {
+    border-color: var(--emerald-light);
+    background: var(--glass-hover);
+    color: var(--text-primary);
+}
+
+.channel-pagination__controls button:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+}
+
+.channel-pagination__ellipsis,
+.channel-pagination__page {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .table-user {
@@ -1870,6 +1919,14 @@ select.form-input option {
     gap: 24px;
 }
 
+.options-settings-grid {
+    grid-column: span 2;
+}
+
+.options-settings-card {
+    min-width: 0;
+}
+
 .settings-nav {
     list-style: none;
 }
@@ -1935,6 +1992,12 @@ select.form-input option {
 
 .settings-row:last-child {
     border-bottom: none;
+}
+
+.settings-row--stacked {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 12px;
 }
 
 .settings-label {
@@ -2031,6 +2094,11 @@ select.form-input option {
     background: rgba(19, 36, 25, 0.98);
     color: var(--text-primary);
     padding: 10px;
+}
+
+.settings-select--wide,
+.settings-number-input {
+    width: min(360px, 100%);
 }
 
 [data-theme="light"] .settings-select {

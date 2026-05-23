@@ -131,6 +131,16 @@
         </table>
     </div>
 
+    @if (! $isUnlimited && $channels->total() > 0)
+        {{ $channels->links('livewire.channel-pagination-links') }}
+    @elseif ($isUnlimited)
+        <div class="channel-pagination">
+            <div class="channel-pagination__summary">
+                Showing all {{ $totalChannels }} channels
+            </div>
+        </div>
+    @endif
+
     @if ($showModal)
         <div class="modal-backdrop table-modal-backdrop" wire:click.self="closeModal"
             wire:keydown.escape.window="closeModal" role="dialog" aria-modal="true">
@@ -172,7 +182,7 @@
                         <label class="form-label" for="delete-channel">Select channel</label>
                         <select id="delete-channel" class="form-input" wire:model="deleteChannelId" required>
                             <option value="">Choose a channel...</option>
-                            @foreach ($channels as $channel)
+                            @foreach ($deleteChoices as $channel)
                                 <option value="{{ $channel->id }}">
                                     {{ ($channel->channel_name ?? 'Unnamed') . ' - ' . $channel->youtube_id }}
                                 </option>

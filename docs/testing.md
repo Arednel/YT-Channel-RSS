@@ -1,6 +1,23 @@
 # Testing
 
-## Test Environment Configuration
+## Scope
+Current automated coverage is split between Laravel PHPUnit tests and Python pytest tests.
+
+Laravel coverage includes:
+- Livewire channel list behavior: add-channel validation, search/sort, copy RSS, delete modal, and configurable pagination
+- Channels page wrapper behavior: visible Channels wording and normalized shared search state
+- Options page behavior: channel pagination setting defaults, fixed/custom/unlimited persistence, and deferred save behavior
+- YouTube sync orchestration: dispatch locking, queued chains, chunk batches, maintenance recovery, feed building, and delete jobs
+- Feed XML contract and selected real-network integration paths gated by environment variables
+- Smaller unit tests for channel references, status labels, sort/progress helpers, and yt-dlp auto-update failure handling
+
+Python coverage includes:
+- channel metadata normalization
+- tab URL construction
+- tab entry merge and dedupe behavior
+- optional real-channel fetch integration when network tests are enabled
+
+## Test Environment Setup
 
 Create `.env.testing` from `.env.testing.example` and set test DB credentials (`DB_*`).
 
@@ -13,32 +30,29 @@ The suite mixes:
 - network-gated integration tests against real YouTube (`YOUTUBE_TESTS_WITH_NETWORK`)
 - deterministic tests that fake external process boundaries (`Process::fake`) while still exercising real Laravel actions/jobs/DB state.
 
-## PHP Tests (Laravel / PHPUnit)
+## Running Tests
 Run all Laravel tests:
 
 ```bash
 php artisan test
 ```
 
-Run channel sync feature tests:
+Run all Laravel tests inside Docker:
+
+```bash
+docker compose --env-file docker/.env.docker --profile test run --rm --build tests
+```
+
+Run a filtered Laravel subset:
 
 ```bash
 php artisan test --filter=RunYoutubeChannelSyncActionTest
+php artisan test --filter=YoutubeRssChannelsTableInputTest
+php artisan test --filter=YoutubeRssChannelsTablePaginationTest
+php artisan test --filter=YoutubeRssChannelsPageTest
+php artisan test --filter=ChannelPaginationSettingsTest
+php artisan test --filter=OptionsControllerTest
 ```
-
-Run queued orchestration / restart simulation tests:
-
-```bash
-php artisan test --filter=SyncYoutubeChannelQueuedWorkflowTest
-```
-
-Run only the real-network channel-sync test method:
-
-```bash
-php artisan test --filter=test_it_runs_real_channel_sync_workflow_with_configured_channel
-```
-
-Note: the real-network test is skipped unless `YOUTUBE_TESTS_WITH_NETWORK=true`.
 
 ## Python Tests (pytest)
 Install Python test dependencies:
@@ -95,6 +109,17 @@ pytest python/tests/test_channel_list.py
   - Feature: `YoutubeRssChannelsTableInputTest`:
     - verifies component save flow accepts only YouTube channel URLs (`youtube.com`, `www.youtube.com`, `m.youtube.com`) in `/@handle...` and `/channel/UC...` forms and extracts normalized identifiers
     - verifies duplicate prevention for UC/handle-equivalent channels
+  - Feature: `YoutubeRssChannelsTablePaginationTest`:
+    - verifies default, fixed, custom, and unlimited channel table page sizes
+    - verifies Livewire paginator navigation methods
+    - verifies search/sort changes reset to page 1
+    - verifies delete modal choices are not limited to the current page
+  - Feature: `YoutubeRssChannelsPageTest`:
+    - verifies the root page uses Channels wording and the shared search value is normalized
+  - Feature: `ChannelPaginationSettingsTest`:
+    - verifies Options pagination defaults, fixed/custom/unlimited persistence, deferred save behavior, and invalid custom-value validation
+  - Feature: `OptionsControllerTest`:
+    - verifies `/options` renders the real pagination setting and route-generated navigation links without template placeholder content
   - Feature: `SyncYoutubeChannelQueuedWorkflowTest`:
     - real queued orchestration from `DispatchSyncYoutubeChannelJobAction` through chain + chunk batch
     - restart simulation by forcing `jobs.reserved_at` and retry-after recovery

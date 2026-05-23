@@ -4,20 +4,26 @@ namespace App\Livewire;
 
 use App\Actions\Youtube\DispatchSyncYoutubeChannelJobAction;
 use App\Jobs\DeleteYoutubeChannelJob;
+use App\Models\Option;
 use App\Models\YoutubeChannel;
-use App\Support\YoutubeBatchManager;
 use App\Support\Youtube\YoutubeChannelReference;
-use Illuminate\Database\Eloquent\Builder;
+use App\Support\YoutubeBatchManager;
 use Illuminate\Contracts\View\View;
-use Illuminate\Support\Collection;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Livewire\Attributes\Modelable;
 use Livewire\Attributes\Url;
 use Livewire\Component;
+use Livewire\WithPagination;
 
 class YoutubeRssChannelsTable extends Component
 {
+    use WithPagination;
+
     /** @var list<string> */
     private const SORTABLE_COLUMNS = ['id', 'channel', 'link', 'rss_link', 'last_updated', 'status'];
+
     private const CHANNEL_URL_MESSAGE = 'Use a YouTube channel link like https://youtube.com/@channel or https://youtube.com/channel/UC...';
 
     private YoutubeBatchManager $youtubeBatchManager;
@@ -32,14 +38,21 @@ class YoutubeRssChannelsTable extends Component
     public string $sortDirection = 'asc';
 
     public string $channelUrl = '';
+
     public ?int $deleteChannelId = null;
+
     public bool $showModal = false;
+
     public bool $showDeleteModal = false;
+
     public bool $confirmDelete = false;
+
     /** @var array<int, string> */
     public array $rssLinkErrors = [];
+
     /** @var array<int, string> */
     public array $rssLinkSuccesses = [];
+
     /** @var array<int, int> */
     public array $rssLinkSuccessExpiresAt = [];
 
@@ -90,12 +103,24 @@ class YoutubeRssChannelsTable extends Component
         $this->applySearch($query, $search);
         $this->applySorting($query);
 
-        $channels = $query->get();
-        $channels = $this->addUtcUpdatedAtViewFields($channels);
+        $perPage = Option::channelsPerPage();
+        $isUnlimited = $perPage === Option::CHANNELS_PER_PAGE_UNLIMITED;
+        $channels = $isUnlimited
+            ? $query->get()
+            : $query->paginate((int) $perPage);
+        $this->addUtcUpdatedAtViewFields(
+            $channels instanceof LengthAwarePaginator ? $channels->getCollection() : $channels
+        );
+
         $channelsById = YoutubeChannel::query()
             ->select(['id', 'status'])
             ->get()
             ->keyBy('id');
+        $deleteChoices = YoutubeChannel::query()
+            ->orderByRaw("CASE WHEN channel_name IS NULL OR channel_name = '' THEN 1 ELSE 0 END")
+            ->orderBy('channel_name')
+            ->orderBy('youtube_id')
+            ->get(['id', 'channel_name', 'youtube_id']);
 
         // Build quick lookup/time references used by transient UI-message cleanup.
         $nowTs = now()->getTimestamp();
@@ -119,7 +144,15 @@ class YoutubeRssChannelsTable extends Component
         // Render the table with the latest channel snapshot.
         return view('livewire.youtube-rss-channels-table', [
             'channels' => $channels,
+            'deleteChoices' => $deleteChoices,
+            'isUnlimited' => $isUnlimited,
+            'totalChannels' => $channels instanceof LengthAwarePaginator ? $channels->total() : $channels->count(),
         ]);
+    }
+
+    public function updatedSearch(): void
+    {
+        $this->resetPage();
     }
 
     public function sortBy(string $column): void
@@ -128,17 +161,21 @@ class YoutubeRssChannelsTable extends Component
 
         if ($this->sortColumn === $column) {
             $this->sortDirection = $this->sortDirection === 'asc' ? 'desc' : 'asc';
+            $this->resetPage();
+
             return;
         }
 
         $this->sortColumn = $column;
         $this->sortDirection = 'asc';
+        $this->resetPage();
     }
 
     public function resetSort(): void
     {
         $this->sortColumn = 'id';
         $this->sortDirection = 'asc';
+        $this->resetPage();
     }
 
     public function openModal(): void
@@ -180,6 +217,7 @@ class YoutubeRssChannelsTable extends Component
         $youtubeReference = YoutubeChannelReference::normalizeInput($this->channelUrl);
         if ($youtubeReference === null) {
             $this->addError('channelUrl', self::CHANNEL_URL_MESSAGE);
+
             return;
         }
 
@@ -187,6 +225,7 @@ class YoutubeRssChannelsTable extends Component
         $youtubeChannelId = $youtubeReference['youtube_channel_id'];
         if (YoutubeChannel::query()->matchingReference($youtubeId, $youtubeChannelId)->exists()) {
             $this->addError('channelUrl', 'This channel is already added.');
+
             return;
         }
 
@@ -198,6 +237,7 @@ class YoutubeRssChannelsTable extends Component
 
         $this->showModal = false;
         $this->channelUrl = '';
+        $this->resetPage();
     }
 
     public function promptDelete(): void
@@ -225,6 +265,7 @@ class YoutubeRssChannelsTable extends Component
         $this->showDeleteModal = false;
         $this->confirmDelete = false;
         $this->deleteChannelId = null;
+        $this->resetPage();
     }
 
     public function copyRssLink(int $channelId): void
@@ -251,10 +292,10 @@ class YoutubeRssChannelsTable extends Component
     }
 
     /**
-     * @param Collection<int, YoutubeChannel> $channels
-     * @return Collection<int, YoutubeChannel>
+     * @param  EloquentCollection<int, YoutubeChannel>  $channels
+     * @return EloquentCollection<int, YoutubeChannel>
      */
-    private function addUtcUpdatedAtViewFields(Collection $channels): Collection
+    private function addUtcUpdatedAtViewFields(EloquentCollection $channels): EloquentCollection
     {
         $channels->each(function (YoutubeChannel $channel): void {
             $updatedAtUtc = $channel->updated_at?->copy()->utc();
@@ -322,11 +363,11 @@ class YoutubeRssChannelsTable extends Component
             return;
         }
 
-        $like = '%' . $search . '%';
+        $like = '%'.$search.'%';
         // Allow matching pasted YouTube URLs and local feed URLs against stored ids.
         $youtubeNeedle = preg_replace('#^https?://(www\.)?youtube\.com/#i', '', $search) ?? $search;
         $feedNeedle = preg_replace(
-            '#^' . preg_quote(rtrim((string) config('app.url'), '/') . '/feeds/', '#') . '(.+?)(?:\.xml)?$#i',
+            '#^'.preg_quote(rtrim((string) config('app.url'), '/').'/feeds/', '#').'(.+?)(?:\.xml)?$#i',
             '$1',
             $search
         ) ?? $search;
@@ -340,13 +381,13 @@ class YoutubeRssChannelsTable extends Component
                 ->orWhere('updated_at', 'like', $like);
 
             if ($youtubeNeedle !== '') {
-                $searchQuery->orWhere('youtube_id', 'like', '%' . $youtubeNeedle . '%')
-                    ->orWhere('youtube_channel_id', 'like', '%' . $youtubeNeedle . '%');
+                $searchQuery->orWhere('youtube_id', 'like', '%'.$youtubeNeedle.'%')
+                    ->orWhere('youtube_channel_id', 'like', '%'.$youtubeNeedle.'%');
             }
 
             if ($feedNeedle !== '') {
-                $searchQuery->orWhere('youtube_id', 'like', '%' . $feedNeedle . '%')
-                    ->orWhere('youtube_channel_id', 'like', '%' . $feedNeedle . '%');
+                $searchQuery->orWhere('youtube_id', 'like', '%'.$feedNeedle.'%')
+                    ->orWhere('youtube_channel_id', 'like', '%'.$feedNeedle.'%');
             }
         });
     }

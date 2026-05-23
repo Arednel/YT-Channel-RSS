@@ -2,6 +2,12 @@
 
 ## Development
 
+* 2026-05-23 -- 0.6.2 Channel Pagination
+  * Added an Options page with configurable Livewire channel pagination
+  * Renamed the main UI from Dashboard to Channels and reused shared navigation/footer components
+  * Added Blade asset cache busting and a sharper channel search icon
+  * Updated README/docs
+
 * 2026-05-23 -- 0.6.1 Docker Tests
   * Added Docker test runner support with an isolated MySQL test database
 

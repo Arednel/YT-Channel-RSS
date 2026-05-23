@@ -7,11 +7,47 @@ Generate and serve Atom feeds for YouTube channels identified by handle (`@chann
 - MySQL persistence for channels/videos.
 
 ## Stack
-- PHP 8.2+
-- Laravel 12
-- Livewire (single-page table + modals)
-- Queue: Laravel database queue + batching
-- Python 3 (tested with Python 3.10.11) `yt-dlp` wrappers (`python/yt-dlp`)
+- Backend: Laravel 12 (PHP 8.2+)
+- Frontend: Blade templates, Livewire for the Channels page/table and Options setting, and plain CSS/JS
+- Database: MySQL 8
+- Background work: Laravel database queues, scheduler, and job batches
+- Scraper/fetcher: Python scripts invoked from Laravel (`python/yt-dlp`)
+
+## Main Application Flow
+1. User opens the Channels page (`GET /`).
+2. `YoutubeChannelController@index` renders `resources/views/Index.blade.php`, then `app/Livewire/YoutubeRssChannels.php` owns the shared search box.
+3. `app/Livewire/YoutubeRssChannelsTable.php` owns channel creation, table search/sort, pagination, copy-RSS feedback, and delete modal behavior.
+4. User adds a YouTube channel URL; the Livewire component validates and normalizes it, creates a `youtube_channels` row, and dispatches channel sync.
+5. Sync jobs call Python `yt-dlp` scripts, persist channel/video metadata, and build the Atom feed XML.
+6. Feed consumers read `GET /feeds/{youtubeChannel:youtube_id}.xml`.
+7. User opens `/options` to change the channel list page size.
+
+## Key Components
+- Routes: `routes/web.php`
+- Channel controller: `app/Http/Controllers/YoutubeChannelController.php`
+- Options controller: `app/Http/Controllers/OptionsController.php`
+- Models:
+  - `app/Models/YoutubeChannel.php`
+  - `app/Models/YoutubeVideo.php`
+  - `app/Models/Option.php`
+- Livewire components:
+  - `app/Livewire/YoutubeRssChannels.php`
+  - `app/Livewire/YoutubeRssChannelsTable.php`
+  - `app/Livewire/ChannelPaginationSettings.php`
+- Shared UI:
+  - `resources/views/components/app-sidebar.blade.php`
+  - `resources/views/livewire/channel-pagination-links.blade.php`
+- Frontend assets:
+  - styles: `public/css/templatemo-glass-admin-style.css`
+  - shared UI script: `public/js/templatemo-glass-admin-script.js`
+  - channel helpers: `public/js/rss-copy-to-clipboard.js`, `public/js/localize-datetime.js`
+  - local Blade-loaded assets use `filemtime(public_path(...))` query strings for cache busting
+- YouTube support:
+  - `app/Support/Youtube/YoutubeChannelReference.php`
+  - `app/Support/YoutubeBatchManager.php`
+  - `app/Support/YoutubeFeedXmlBuilder.php`
+- Queue jobs/actions live under `app/Jobs` and `app/Actions/Youtube`.
+- Python boundary lives under `python/yt-dlp`.
 
 ## Docker Compose Topology
 Current containerized runtime is split by responsibility:
@@ -42,13 +78,25 @@ Shared writable Docker volumes are mounted for:
 ## Main HTTP Endpoints
 - `GET /`
   - Renders `resources/views/Index.blade.php`.
-  - Mounts Livewire component `YoutubeRssDashboard` (which renders `YoutubeRssChannelsTable`).
+  - Mounts Livewire component `YoutubeRssChannels` (which renders `YoutubeRssChannelsTable`).
+- `GET /options`
+  - Renders `resources/views/Options.blade.php`.
+  - Mounts Livewire component `ChannelPaginationSettings`.
 - `GET /feeds/{youtubeChannel:youtube_id}.xml`
   - Serves prebuilt file: `storage/app/public/feeds/{youtube_id}.xml`.
   - Content type: `application/atom+xml; charset=UTF-8`.
   - Explicit no-cache headers, removes `ETag` and `Last-Modified`.
 
 ## UI Flow (Livewire)
+- Channel table:
+  - Uses Livewire pagination for channel list rows.
+  - Reads page size from `Option::channelsPerPage()`.
+  - Supports fixed choices, custom positive integers, and `unlimited`.
+  - Search and sort changes reset the paginator to page 1.
+  - Delete modal choices are loaded separately so all channels remain selectable even when the table is paginated.
+- Options page:
+  - Stores channel table pagination settings in `options.channels_per_page`.
+  - Reuses the shared channel sidebar and the same visual shell as the Channels page.
 - Add channel:
   - Validates `channelUrl`.
   - Accepts only channel URLs in `https://youtube.com/...`, `https://www.youtube.com/...`, or `https://m.youtube.com/...` hosts, with `/@...` or `/channel/UC...` paths (including tail paths like `/videos`).
@@ -98,6 +146,19 @@ Shared writable Docker volumes are mounted for:
 - `media_description`
 - timestamps
 - index: `(youtube_channel_id, published_date)`
+
+### `options`
+- `id` (PK)
+- `key` (unique)
+- `value` (nullable string)
+- timestamps
+
+Current app option:
+- `channels_per_page`: channel list page size.
+  - Default: `100`.
+  - Fixed choices: `10`, `25`, `50`, `100`, `250`, `500`, `1000`.
+  - Custom positive integers are accepted.
+  - `unlimited` disables table pagination links and renders all matching channels.
 
 ## Status Domain Rules
 Centralized in:
@@ -296,3 +357,26 @@ Key rules:
 ## Feed Timestamp Output
 - Atom `<published>` and `<updated>` values are emitted from DB datetimes via `Carbon::toAtomString()`.
 - When Unix timestamps are available from yt-dlp, feed entries include full time (hour/minute/second) instead of midnight-only dates.
+
+## Runtime Monitoring and Recovery
+Useful DB/log checks:
+- `youtube_channels.status`: many `failed` or `feed failed` rows usually point to upstream, Python, queue, or storage problems.
+- `youtube_channels.last_error`: most recent persisted failure detail for a channel.
+- `jobs` and `failed_jobs`: queue backlog and hard failures.
+- `storage/logs/youtube.log`: Laravel workflow log.
+- `storage/logs/python.log`: Python fetch log.
+- `storage/logs/yt-dlp-update.log`: yt-dlp update log.
+
+Failed or feed-failed channels can usually be retried after fixing the root cause with:
+```bash
+php artisan youtube:maintenance --channel-id={id}
+```
+
+`YoutubeBatchManager::hasActiveVideoBatch()` auto-cleans missing, finished, and cancelled batch ids. If a restart leaves pending chunk jobs in the queue, start `php artisan queue:work` so batch state can continue and finalize.
+
+For rate-limit storms, look for repeated chunk exit code `29` and retries with reduced thread counts. The usual mitigations are lowering `YOUTUBE_VIDEO_FETCH_THREADS`, increasing `YOUTUBE_VIDEO_RATE_LIMIT_COOLDOWN`, or setting `YOUTUBE_VIDEO_CHUNK_JOBS_PER_MINUTE`.
+
+Feed serving behavior:
+- Feeds are prebuilt XML files on the `public` disk.
+- Missing feed files return `404`.
+- Feed responses use no-cache headers and remove conditional cache headers.
