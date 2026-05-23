@@ -90,6 +90,12 @@ Run only the real channel-sync integration test:
 php artisan test --filter=RunYoutubeChannelSyncActionTest
 ```
 
+To run the test suite inside Docker with a dedicated test database:
+
+```bash
+docker compose --env-file docker/.env.docker --profile test run --rm --build tests
+```
+
 ### Run Python pytest suite
 
 Activate venv with:

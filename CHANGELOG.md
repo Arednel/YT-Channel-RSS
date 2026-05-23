@@ -2,6 +2,9 @@
 
 ## Development
 
+* 2026-05-23 -- 0.6.1 Docker Tests
+  * Added Docker test runner support with an isolated MySQL test database
+
 * 2026-03-26 -- 0.6.0 Docker Compose and fixes
   * Added docker-compose Quick Start
   * Fixed first time job dispatch
