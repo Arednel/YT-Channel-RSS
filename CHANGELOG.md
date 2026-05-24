@@ -2,6 +2,10 @@
 
 ## Development
 
+* 2026-05-24 -- 0.6.3 Pagination and CSS Cleanup
+  * Collapsed channel pagination links for large page counts
+  * Removed unused TemplateMo demo CSS from the active stylesheet
+
 * 2026-05-23 -- 0.6.2 Channel Pagination
   * Added an Options page with configurable Livewire channel pagination
   * Renamed the main UI from Dashboard to Channels and reused shared navigation/footer components

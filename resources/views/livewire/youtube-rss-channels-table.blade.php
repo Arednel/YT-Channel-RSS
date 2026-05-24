@@ -132,7 +132,7 @@
     </div>
 
     @if (! $isUnlimited && $channels->total() > 0)
-        {{ $channels->links('livewire.channel-pagination-links') }}
+        {{ $channels->onEachSide(1)->links('livewire.channel-pagination-links') }}
     @elseif ($isUnlimited)
         <div class="channel-pagination">
             <div class="channel-pagination__summary">
