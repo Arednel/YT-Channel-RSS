@@ -1,18 +1,18 @@
 @props(['active' => 'index'])
 
-<aside class="sidebar" id="sidebar">
-    <div class="sidebar-header">
-        <div class="logo">RSS</div>
-        <span class="logo-text">YouTube RSS</span>
+<aside class="app-sidebar" id="app-sidebar">
+    <div class="app-sidebar__header">
+        <div class="app-sidebar__brand-mark">RSS</div>
+        <span class="app-sidebar__brand-name">YouTube RSS</span>
     </div>
 
-    <ul class="nav-menu">
-        <li class="nav-section">
-            <span class="nav-section-title">Main Menu</span>
+    <ul class="app-sidebar__nav">
+        <li class="app-sidebar__nav-section">
+            <span class="app-sidebar__nav-title">Main Menu</span>
             <ul>
-                <li class="nav-item">
-                    <a href="{{ route('index', [], false) }}" @class(['nav-link', 'active' => $active === 'index'])>
-                        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                <li class="app-sidebar__nav-item">
+                    <a href="{{ route('index', [], false) }}" @class(['app-sidebar__nav-link', 'active' => $active === 'index'])>
+                        <svg class="app-sidebar__nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                             stroke-width="2">
                             <rect x="3" y="3" width="7" height="7" rx="1" />
                             <rect x="14" y="3" width="7" height="7" rx="1" />
@@ -22,9 +22,9 @@
                         Channels
                     </a>
                 </li>
-                <li class="nav-item">
-                    <a href="{{ route('options', [], false) }}" @class(['nav-link', 'active' => $active === 'options'])>
-                        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                <li class="app-sidebar__nav-item">
+                    <a href="{{ route('options', [], false) }}" @class(['app-sidebar__nav-link', 'active' => $active === 'options'])>
+                        <svg class="app-sidebar__nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                             stroke-width="2">
                             <circle cx="12" cy="12" r="3" />
                             <path

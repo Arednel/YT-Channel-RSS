@@ -2,6 +2,11 @@
 
 ## Development
 
+* 2026-05-24 -- 0.6.4 Cleanup
+  * Split active CSS into shared, Channels, and Options stylesheets
+  * Renamed active UI classes to domain-focused BEM names
+  * Renamed the shared UI script to `app-ui.js`
+
 * 2026-05-24 -- 0.6.3 Pagination and CSS Cleanup
   * Collapsed channel pagination links for large page counts
   * Removed unused TemplateMo demo CSS from the active stylesheet

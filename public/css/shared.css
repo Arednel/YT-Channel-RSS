@@ -1,0 +1,605 @@
+:root {
+    /* Primary Colors - Emerald & Gold Luxury */
+    --emerald: #059669;
+    --emerald-light: #34d399;
+    --gold: #d4a574;
+    --gold-light: #e8c9a0;
+    --amber: #b45309;
+    --cream: #fef3e2;
+
+    /* Accent Colors */
+    --coral: #e07a5f;
+    --slate: #475569;
+
+    /* Glass Colors */
+    --glass-bg: rgba(255, 255, 255, 0.05);
+    --glass-border: rgba(255, 255, 255, 0.1);
+    --glass-shadow: rgba(0, 0, 0, 0.3);
+    --glass-hover: rgba(255, 255, 255, 0.08);
+
+    /* Background - Deep Forest */
+    --bg-dark: #0a0f0d;
+    --bg-gradient-1: #0d1a14;
+    --bg-gradient-2: #132419;
+    --bg-gradient-3: #1a2e23;
+
+    /* Text */
+    --text-primary: #f5f5f4;
+    --text-secondary: rgba(245, 245, 244, 0.7);
+    --text-muted: rgba(245, 245, 244, 0.4);
+
+    /* Status Colors */
+    --success: #22c55e;
+    --warning: #eab308;
+    --danger: #dc2626;
+    --info: #0ea5e9;
+
+    /* Spacing */
+    --app-sidebar-width: 280px;
+    --app-toolbar-height: 70px;
+    --border-radius: 20px;
+    --panel-padding: 24px;
+
+    /* Transitions */
+    --transition-fast: 0.2s ease;
+    --transition-normal: 0.3s ease;
+    --transition-slow: 0.5s ease;
+}
+
+/* Light Mode */
+[data-theme="light"] {
+    /* Glass Colors - Light */
+    --glass-bg: rgba(255, 255, 255, 0.6);
+    --glass-border: rgba(0, 0, 0, 0.1);
+    --glass-shadow: rgba(0, 0, 0, 0.1);
+    --glass-hover: rgba(255, 255, 255, 0.8);
+
+    /* Background - Light */
+    --bg-dark: #f5f5f0;
+    --bg-gradient-1: #e8f5e9;
+    --bg-gradient-2: #f1f8e9;
+    --bg-gradient-3: #fefefe;
+
+    /* Text - Light */
+    --text-primary: #1a1a1a;
+    --text-secondary: rgba(26, 26, 26, 0.7);
+    --text-muted: rgba(26, 26, 26, 0.5);
+}
+
+[data-theme="light"] .panel::before {
+    background: linear-gradient(90deg, transparent, rgba(0, 0, 0, 0.05), transparent);
+}
+
+/* ============================================
+   RESET & BASE STYLES
+============================================ */
+*,
+*::before,
+*::after {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html {
+    scroll-behavior: smooth;
+}
+
+body {
+    font-family: 'Outfit', sans-serif;
+    background: var(--bg-dark);
+    color: var(--text-primary);
+    min-height: 100vh;
+    overflow-x: hidden;
+    line-height: 1.6;
+}
+
+a {
+    text-decoration: none;
+    color: inherit;
+}
+
+/* ============================================
+   LAYOUT STRUCTURE
+============================================ */
+.app-layout {
+    display: flex;
+    min-height: 100vh;
+}
+
+/* ============================================
+   SIDEBAR
+============================================ */
+.app-sidebar {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: var(--app-sidebar-width);
+    height: 100vh;
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-right: 1px solid var(--glass-border);
+    padding: 24px;
+    z-index: 100;
+    transition: all var(--transition-normal);
+    overflow-y: auto;
+}
+
+/* Custom Scrollbar for Sidebar */
+.app-sidebar::-webkit-scrollbar {
+    width: 6px;
+}
+
+.app-sidebar::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.app-sidebar::-webkit-scrollbar-thumb {
+    background: var(--glass-border);
+    border-radius: 3px;
+}
+
+.app-sidebar::-webkit-scrollbar-thumb:hover {
+    background: var(--emerald-light);
+}
+
+.app-sidebar__header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding-bottom: 30px;
+    border-bottom: 1px solid var(--glass-border);
+    margin-bottom: 30px;
+}
+
+.app-sidebar__brand-mark {
+    width: 45px;
+    height: 45px;
+    background: linear-gradient(135deg, var(--emerald), var(--gold));
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 20px;
+    box-shadow: 0 8px 32px rgba(5, 150, 105, 0.3);
+}
+
+.app-sidebar__brand-name {
+    font-size: 22px;
+    font-weight: 600;
+    background: linear-gradient(135deg, var(--emerald-light), var(--gold));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.app-sidebar__nav {
+    list-style: none;
+    flex: 1;
+}
+
+.app-sidebar__nav ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.app-sidebar__nav-section {
+    margin-bottom: 25px;
+    list-style: none;
+}
+
+.app-sidebar__nav-title {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+    padding-left: 15px;
+}
+
+.app-sidebar__nav-item {
+    margin-bottom: 5px;
+    list-style: none;
+}
+
+.app-sidebar__nav-link {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 18px;
+    color: var(--text-secondary);
+    text-decoration: none;
+    border-radius: 12px;
+    transition: all var(--transition-fast);
+    position: relative;
+    overflow: hidden;
+}
+
+.app-sidebar__nav-link:hover {
+    background: var(--glass-hover);
+    color: var(--text-primary);
+}
+
+.app-sidebar__nav-link.active {
+    background: var(--glass-hover);
+    color: var(--text-primary);
+}
+
+.app-sidebar__nav-icon {
+    width: 22px;
+    height: 22px;
+    opacity: 0.8;
+}
+
+.app-sidebar__nav-link.active .app-sidebar__nav-icon,
+.app-sidebar__nav-link:hover .app-sidebar__nav-icon {
+    opacity: 1;
+}
+
+/* ============================================
+   MAIN CONTENT
+============================================ */
+.app-main {
+    flex: 1;
+    margin-left: var(--app-sidebar-width);
+    padding: 30px;
+    min-height: 100vh;
+}
+
+/* ============================================
+   APP TOOLBAR
+============================================ */
+.app-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 30px;
+    gap: 20px;
+}
+
+.app-toolbar__title {
+    font-size: 28px;
+    font-weight: 600;
+}
+
+.app-toolbar__actions {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+
+
+.theme-toggle {
+    width: 45px;
+    height: 45px;
+    background: var(--glass-bg);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    position: relative;
+    transition: all var(--transition-fast);
+}
+
+.theme-toggle:hover {
+    background: var(--glass-hover);
+    border-color: var(--emerald-light);
+}
+
+.theme-toggle svg {
+    width: 20px;
+    height: 20px;
+    color: var(--text-secondary);
+}
+
+/* ============================================
+   PANEL BASE
+============================================ */
+.panel {
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--border-radius);
+    padding: var(--panel-padding);
+    position: relative;
+    overflow: hidden;
+    transition: all var(--transition-normal);
+    transform-style: preserve-3d;
+    perspective: 1000px;
+}
+
+.panel::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+}
+
+.panel:hover {
+    background: var(--glass-hover);
+    border-color: rgba(255, 255, 255, 0.15);
+    box-shadow:
+        0 25px 50px -12px var(--glass-shadow),
+        0 0 40px rgba(52, 211, 153, 0.1);
+}
+
+/* ============================================
+   CONTENT GRID
+============================================ */
+.app-content-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 24px;
+    margin-bottom: 30px;
+    min-height: 400px;
+}
+
+.panel__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+}
+
+.panel__title {
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.panel__subtitle {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-top: 4px;
+}
+
+.panel__actions {
+    display: flex;
+    gap: 8px;
+}
+
+.action-button {
+    padding: 8px 16px;
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: 8px;
+    color: var(--text-secondary);
+    font-family: inherit;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.action-button:hover,
+.action-button.active {
+    background: var(--glass-hover);
+    border-color: var(--emerald-light);
+    color: var(--text-primary);
+}
+
+/* ============================================
+   APP SIDEBAR TOGGLE
+============================================ */
+.app-sidebar-toggle {
+    display: none;
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    width: 56px;
+    height: 56px;
+    background: linear-gradient(135deg, var(--emerald), var(--gold));
+    border: none;
+    border-radius: 16px;
+    cursor: pointer;
+    z-index: 200;
+    box-shadow: 0 8px 32px rgba(5, 150, 105, 0.3);
+}
+
+.app-sidebar-toggle svg {
+    width: 24px;
+    height: 24px;
+    color: white;
+}
+
+/* ============================================
+   FORM CONTROLS
+============================================ */
+
+.form-field {
+    margin-bottom: 24px;
+}
+
+.form-field__label {
+    display: block;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+}
+
+.form-control {
+    width: 100%;
+    padding: 14px 18px;
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 15px;
+    transition: all var(--transition-fast);
+}
+
+.form-control::placeholder {
+    color: var(--text-muted);
+}
+
+.form-control:focus {
+    outline: none;
+    border-color: var(--emerald-light);
+    box-shadow: 0 0 20px rgba(52, 211, 153, 0.2);
+}
+
+select.form-control {
+    background: var(--glass-bg);
+    color: var(--text-primary);
+}
+
+select.form-control option {
+    background: var(--bg-dark);
+    color: var(--text-primary);
+}
+
+/* ============================================
+   FOOTER
+============================================ */
+.app-footer {
+    text-align: center;
+    padding: 20px;
+    margin-left: var(--app-sidebar-width);
+    color: var(--text-muted);
+    font-size: 14px;
+}
+
+/* ============================================
+   RESPONSIVE DESIGN
+============================================ */
+@media (max-width: 1200px) {
+    .app-content-grid {
+        grid-template-columns: 1fr;
+        min-height: 400px;
+    }
+}
+
+@media (max-width: 992px) {
+    :root {
+        --app-sidebar-width: 0px;
+    }
+
+    .app-sidebar {
+        transform: translateX(-100%);
+        width: 280px;
+    }
+
+    .app-sidebar.open {
+        transform: translateX(0);
+    }
+
+    .app-main {
+        margin-left: 0;
+    }
+
+    .app-sidebar-toggle {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .app-footer {
+        margin-left: 0;
+    }
+}
+
+@media (max-width: 768px) {
+    .app-toolbar {
+        flex-wrap: wrap;
+    }
+
+    .app-toolbar__title {
+        font-size: 22px;
+    }
+}
+
+@media (max-width: 480px) {
+    .app-main {
+        padding: 20px 15px;
+    }
+
+    .panel {
+        padding: 18px;
+    }
+}
+
+/* ============================================
+   DIALOG
+============================================ */
+.dialog-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(6, 10, 8, 0.35);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    z-index: 2000;
+}
+
+
+
+.dialog {
+    width: min(520px, 92vw);
+    background: var(--bg-dark);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--border-radius);
+    padding: 24px;
+    box-shadow: 0 30px 70px -20px var(--glass-shadow);
+}
+
+.dialog__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 16px;
+}
+
+.dialog__title {
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.dialog__close {
+    border: 1px solid var(--glass-border);
+    background: transparent;
+    color: var(--text-primary);
+    padding: 6px 12px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.dialog__close:hover {
+    border-color: var(--emerald-light);
+    color: var(--emerald-light);
+}
+
+.dialog__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 16px;
+}
+
+.form-feedback {
+    margin-top: 8px;
+    font-size: 12px;
+}
+
+.form-feedback--error {
+    color: var(--danger);
+}
+
+.form-feedback--success {
+    color: #3bcf8e;
+}

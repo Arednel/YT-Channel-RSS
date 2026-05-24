@@ -1,0 +1,202 @@
+/* ============================================
+   PAGE HEADER (for inner pages)
+============================================ */
+.page-heading {
+    margin-bottom: 30px;
+}
+
+.page-heading .app-toolbar__title {
+    margin-bottom: 8px;
+}
+
+.page-heading__breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--text-muted);
+}
+
+.page-heading__breadcrumb a {
+    color: var(--text-secondary);
+    transition: color var(--transition-fast);
+}
+
+.page-heading__breadcrumb a:hover {
+    color: var(--emerald-light);
+}
+
+.page-heading__breadcrumb span {
+    color: var(--text-muted);
+}
+
+/* ============================================
+   SETTINGS PAGE
+============================================ */
+.options-layout {
+    display: grid;
+    grid-template-columns: 250px 1fr;
+    gap: 24px;
+}
+
+.options-layout--settings {
+    grid-column: span 2;
+}
+
+.options-panel {
+    min-width: 0;
+}
+
+.options-nav {
+    list-style: none;
+}
+
+.options-nav__item {
+    margin-bottom: 8px;
+}
+
+.options-nav__link {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 18px;
+    color: var(--text-secondary);
+    border-radius: 12px;
+    transition: all var(--transition-fast);
+}
+
+.options-nav__link:hover {
+    background: var(--glass-hover);
+    color: var(--text-primary);
+}
+
+.options-nav__link.active {
+    background: var(--glass-hover);
+    color: var(--text-primary);
+}
+
+.options-nav__link svg {
+    width: 20px;
+    height: 20px;
+    opacity: 0.7;
+}
+
+.options-nav__link.active svg,
+.options-nav__link:hover svg {
+    opacity: 1;
+}
+
+.settings-panel {
+    margin-bottom: 32px;
+}
+
+.settings-panel:last-child {
+    margin-bottom: 0;
+}
+
+.settings-panel__title {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--glass-border);
+}
+
+.settings-field {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.settings-field:last-child {
+    border-bottom: none;
+}
+
+.settings-field--stacked {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.settings-field__label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.settings-field__label-title {
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.settings-field__label-description {
+    font-size: 13px;
+    color: var(--text-muted);
+}
+
+/* Settings Select Dropdown */
+.settings-control {
+    padding: 10px 16px;
+    background: rgba(19, 36, 25, 0.95);
+    border: 1px solid var(--glass-border);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 14px;
+    cursor: pointer;
+    min-width: 150px;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2334d399' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 36px;
+}
+
+.settings-control:focus {
+    outline: none;
+    border-color: var(--emerald-light);
+    box-shadow: 0 0 15px rgba(52, 211, 153, 0.15);
+}
+
+.settings-control option {
+    background: rgba(19, 36, 25, 0.98);
+    color: var(--text-primary);
+    padding: 10px;
+}
+
+.settings-control--wide,
+.settings-control--number {
+    width: min(360px, 100%);
+}
+
+[data-theme="light"] .settings-control {
+    background-color: rgba(245, 245, 240, 0.95);
+}
+
+[data-theme="light"] .settings-control option {
+    background: rgba(245, 245, 240, 0.98);
+    color: #1a1a1a;
+}
+
+.settings-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 24px;
+}
+
+/* ============================================
+   RESPONSIVE DESIGN
+============================================ */
+@media (max-width: 992px) {
+    .options-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .options-nav-panel {
+        display: none;
+    }
+}

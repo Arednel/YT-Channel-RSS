@@ -38,8 +38,10 @@ Generate and serve Atom feeds for YouTube channels identified by handle (`@chann
   - `resources/views/components/app-sidebar.blade.php`
   - `resources/views/livewire/channel-pagination-links.blade.php`
 - Frontend assets:
-  - styles: `public/css/templatemo-glass-admin-style.css`
-  - shared UI script: `public/js/templatemo-glass-admin-script.js`
+  - shared styles: `public/css/shared.css`
+  - channel page styles: `public/css/index.css`
+  - options page styles: `public/css/options.css`
+  - shared UI script: `public/js/app-ui.js`
   - channel helpers: `public/js/rss-copy-to-clipboard.js`, `public/js/localize-datetime.js`
   - local Blade-loaded assets use `filemtime(public_path(...))` query strings for cache busting
 - YouTube support:

@@ -1,10 +1,10 @@
-<nav class="channel-pagination" role="navigation" aria-label="Channel pagination">
-    <div class="channel-pagination__summary">
+<nav class="channels-pagination" role="navigation" aria-label="Channel pagination">
+    <div class="channels-pagination__summary">
         Showing {{ $paginator->firstItem() }}-{{ $paginator->lastItem() }} of {{ $paginator->total() }} channels
     </div>
 
     @if ($paginator->hasPages())
-        <div class="channel-pagination__controls">
+        <div class="channels-pagination__controls">
             @if ($paginator->onFirstPage())
                 <button type="button" disabled>Previous</button>
             @else
@@ -14,13 +14,13 @@
 
             @foreach ($elements as $element)
                 @if (is_string($element))
-                    <span class="channel-pagination__ellipsis">{{ $element }}</span>
+                    <span class="channels-pagination__ellipsis">{{ $element }}</span>
                 @endif
 
                 @if (is_array($element))
                     @foreach ($element as $page => $url)
                         @if ($page === $paginator->currentPage())
-                            <span class="channel-pagination__page is-active" aria-current="page">{{ $page }}</span>
+                            <span class="channels-pagination__page is-active" aria-current="page">{{ $page }}</span>
                         @else
                             <button type="button" wire:key="channel-page-{{ $page }}"
                                 wire:click="gotoPage({{ $page }}, '{{ $paginator->getPageName() }}')"
