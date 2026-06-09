@@ -10,6 +10,7 @@ Route::get('/', [YoutubeChannelController::class, 'index'])
 
 // Feeds
 Route::get('/feeds/{youtubeChannel:youtube_id}.xml', [YoutubeChannelController::class, 'feed'])
+    ->where('youtubeChannel', '[^/]+')
     ->name('feeds.show');
 
 // Options

@@ -2,6 +2,9 @@
 
 ## Development
 
+* 2026-06-09 -- 0.6.5 Bug Fix
+  * Fixed feed links for YouTube handles that contain dots
+
 * 2026-05-24 -- 0.6.4 Cleanup
   * Split active CSS into shared, Channels, and Options stylesheets
   * Renamed active UI classes to domain-focused BEM names
