@@ -26,7 +26,7 @@ docker compose --env-file docker/.env.docker up --build -d
 - PHP 8.3
 - Composer
 - MySQL 8
-- [Python 3.10.11](https://www.python.org/downloads/release/python-31011) (tested with this version) and [pip](https://pypi.org/project/pip)
+- [Python 3.14.6](https://www.python.org/downloads/release/python-3146) (tested with this version) and [pip](https://pypi.org/project/pip)
 
 ### 1) Create `.env` from `.env.example` then run from the project root:
 

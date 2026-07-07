@@ -2,6 +2,9 @@
 
 ## Development
 
+* 2026-07-08 -- 0.6.5.1 Python Version
+  * Updated Python requirements to "Python 3.14.6"
+
 * 2026-06-09 -- 0.6.5 Bug Fix
   * Fixed feed links for YouTube handles that contain dots
 
