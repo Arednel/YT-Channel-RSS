@@ -2,6 +2,7 @@
 
 namespace App\Support\Youtube;
 
+use App\Logging\WeeklyRotatingFileHandler;
 use App\Models\YoutubeChannel;
 use App\Support\PythonBinaryResolver;
 use Illuminate\Support\Facades\File;
@@ -34,7 +35,11 @@ class ChannelFetchRunner
             $pythonLogFile,
         ];
 
-        $processResult = Process::timeout($pythonTimeoutSeconds)->run($command);
+        $processResult = Process::env([
+            'LOG_RETENTION_DAYS' => (string) WeeklyRotatingFileHandler::normalizeRetentionDays(
+                config('logging.retention_days'),
+            ),
+        ])->timeout($pythonTimeoutSeconds)->run($command);
 
         if ($processResult->failed()) {
             $errorOutput = trim($processResult->errorOutput()) ?: trim($processResult->output());

@@ -7,6 +7,7 @@ use App\Models\YoutubeChannel;
 use App\Models\YoutubeVideo;
 use App\Support\Youtube\YtDlpAutoUpdateManager;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Process\PendingProcess;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Queue;
@@ -213,7 +214,7 @@ class FetchYoutubeVideoChunkJobTest extends TestCase
         File::ensureDirectoryExists(dirname($sourcePath));
         File::put($sourcePath, json_encode(['id' => 'rate-limit-video-001'], JSON_THROW_ON_ERROR) . PHP_EOL);
 
-        Process::fake(fn () => Process::result('', '', 29));
+        Process::fake(fn() => Process::result('', '', 29));
         Process::preventStrayProcesses();
 
         try {
@@ -242,6 +243,42 @@ class FetchYoutubeVideoChunkJobTest extends TestCase
         }
     }
 
+    public function test_it_passes_default_retention_to_python_when_configuration_is_invalid(): void
+    {
+        config()->set('logging.retention_days', 0);
+        $channel = YoutubeChannel::factory()
+            ->idle()
+            ->forYoutubeId('@chunk-retention-' . uniqid())
+            ->create();
+
+        $baseDirectory = base_path('python/yt-dlp_jsons/' . $channel->youtube_id);
+        $sourceFile = 'video_id_chunks/chunk_00001.jsonl';
+        $sourcePath = $baseDirectory . '/' . $sourceFile;
+
+        File::ensureDirectoryExists(dirname($sourcePath));
+        File::put($sourcePath, json_encode(['id' => 'retention-video'], JSON_THROW_ON_ERROR) . PHP_EOL);
+        $this->fakeYoutubeChunkProcessWithRowsByCall([[]]);
+
+        try {
+            $job = new FetchYoutubeVideoChunkJob(
+                channelId: $channel->id,
+                youtubeId: $channel->youtube_id,
+                chunkIndex: 0,
+                chunkSize: 1,
+                sourceFile: $sourceFile,
+            );
+            $job->handle(app(YtDlpAutoUpdateManager::class));
+
+            Process::assertRan(function (PendingProcess $process): bool {
+                return $process->environment === ['LOG_RETENTION_DAYS' => '90']
+                    && is_array($process->command)
+                    && in_array(base_path('python/yt-dlp/video_fetch_chunk.py'), $process->command, true);
+            });
+        } finally {
+            File::deleteDirectory($baseDirectory);
+        }
+    }
+
     public function test_failed_records_video_update_failure(): void
     {
         $this->mock(YtDlpAutoUpdateManager::class, function (MockInterface $mock): void {
@@ -260,5 +297,4 @@ class FetchYoutubeVideoChunkJobTest extends TestCase
 
         $job->failed(new \RuntimeException('chunk job failed'));
     }
-
 }

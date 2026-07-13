@@ -3,10 +3,12 @@ import logging
 import os
 import time
 from collections.abc import Iterable
+from pathlib import Path
 
 import yt_dlp
 from yt_dlp.utils import DownloadError
 
+from .weekly_logging import WeeklyFileHandler
 
 OPTIONAL_TAB_ERROR_SUBSTRINGS = (
     "does not have a shorts tab",
@@ -26,10 +28,16 @@ def _channel_label(channel_context: str | None) -> str:
 
 
 def setup_logging(log_file: str) -> None:
-    os.makedirs(os.path.dirname(log_file), exist_ok=True)
+    log_path = Path(log_file)
     logging.Formatter.converter = time.gmtime
     logging.basicConfig(
-        filename=log_file,
+        handlers=[
+            WeeklyFileHandler(
+                log_path.parent,
+                log_path.stem,
+                retention_days=os.getenv("LOG_RETENTION_DAYS"),
+            )
+        ],
         level=logging.INFO,
         format="[%(asctime)s UTC] %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",

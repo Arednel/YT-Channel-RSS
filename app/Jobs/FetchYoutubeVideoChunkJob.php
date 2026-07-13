@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Jobs\Middleware\RateLimitYoutubeVideoChunk;
 use App\Jobs\Middleware\SkipIfYoutubeBatchCancelled;
+use App\Logging\WeeklyRotatingFileHandler;
 use App\Models\YoutubeChannel;
 use App\Models\YoutubeVideo;
 use App\Support\PythonBinaryResolver;
@@ -21,8 +22,11 @@ class FetchYoutubeVideoChunkJob implements ShouldQueue
     use Batchable, Queueable;
 
     public int $tries = 3;
+
     public int $backoff = 60;
+
     private const RATE_LIMIT_EXIT_CODE = 29;
+
     private const PARTIAL_FAILURE_EXIT_CODE = 30;
 
     public function __construct(
@@ -82,7 +86,11 @@ class FetchYoutubeVideoChunkJob implements ShouldQueue
         $threadCount = $this->resolvedThreadCount();
         $pythonTimeoutSeconds = max(60, (int) config('youtube.python_process_timeout_seconds', 600));
 
-        $processResult = Process::timeout($pythonTimeoutSeconds)->run([
+        $processResult = Process::env([
+            'LOG_RETENTION_DAYS' => (string) WeeklyRotatingFileHandler::normalizeRetentionDays(
+                config('logging.retention_days'),
+            ),
+        ])->timeout($pythonTimeoutSeconds)->run([
             PythonBinaryResolver::resolve(),
             base_path('python/yt-dlp/video_fetch_chunk.py'),
             '--source-dir',
@@ -107,6 +115,7 @@ class FetchYoutubeVideoChunkJob implements ShouldQueue
 
         if ($processResult->exitCode() === self::RATE_LIMIT_EXIT_CODE) {
             $this->handleRateLimit();
+
             return;
         }
 
@@ -156,6 +165,7 @@ class FetchYoutubeVideoChunkJob implements ShouldQueue
                     'chunk_number' => $this->chunkIndex + 1,
                     'youtube_video_id' => $youtubeVideoId,
                 ]);
+
                 continue;
             }
 
@@ -280,6 +290,7 @@ class FetchYoutubeVideoChunkJob implements ShouldQueue
             }
 
             $this->batch()->add([$retryJob]);
+
             return;
         }
 
@@ -376,6 +387,7 @@ class FetchYoutubeVideoChunkJob implements ShouldQueue
     private function resolvedThreadCount(): int
     {
         $configured = (int) config('youtube.video_fetch_threads', 8);
+
         return max(1, $this->threadCount ?? $configured);
     }
 }

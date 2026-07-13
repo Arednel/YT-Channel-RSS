@@ -10,12 +10,14 @@ Laravel coverage includes:
 - YouTube sync orchestration: dispatch locking, queued chains, chunk batches, maintenance recovery, feed building, and delete jobs
 - Feed XML contract and selected real-network integration paths gated by environment variables
 - Smaller unit tests for channel references, status labels, sort/progress helpers, and yt-dlp auto-update failure handling
+- Weekly logging unit/configuration tests for UTC boundaries, retention, selective cleanup, locked writes, and Python process environment propagation
 
 Python coverage includes:
 - channel metadata normalization
 - tab URL construction
 - tab entry merge and dedupe behavior
 - optional real-channel fetch integration when network tests are enabled
+- weekly file naming, switching, retention cleanup, failure handling, and `setup_logging(log_file)` integration
 
 ## Test Environment Setup
 
@@ -54,6 +56,12 @@ php artisan test --filter=ChannelPaginationSettingsTest
 php artisan test --filter=OptionsControllerTest
 ```
 
+Run the focused weekly logging and process tests:
+
+```bash
+php artisan test tests/Unit/Logging tests/Unit/Youtube/ChannelFetchRunnerTest.php tests/Feature/Youtube/FetchYoutubeVideoChunkJobTest.php
+```
+
 ## Python Tests (pytest)
 Install Python test dependencies:
 
@@ -86,6 +94,18 @@ Run only channel-list tests:
 
 ```bash
 pytest python/tests/test_channel_list.py
+```
+
+Run only weekly logging tests:
+
+```bash
+pytest python/tests/test_weekly_logging.py
+```
+
+On restricted Windows environments, point pytest's temporary files at a writable project path:
+
+```bash
+pytest --basetemp=storage/framework/testing/pytest python/tests/test_weekly_logging.py
 ```
 
 ## Current Test Coverage
@@ -166,6 +186,11 @@ pytest python/tests/test_channel_list.py
     - validates failure-threshold trigger for `UpdateYtDlpJob`
     - ignores rate-limit-like errors for threshold counting
 - Python:
+  - `lib/weekly_logging.py`:
+    - UTC Monday week/filename calculation and same-week append/switch behavior
+    - complete-week retention, exact-expiry cleanup, and selective archive matching
+    - concurrent removal and non-blocking stderr cleanup failures
+    - `setup_logging(log_file)` handler, formatting, and environment-retention behavior
   - `lib/channel_list.py`:
     - channel metadata normalization
     - tab URL construction

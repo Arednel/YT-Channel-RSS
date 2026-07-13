@@ -137,8 +137,21 @@ Mapped in `config/youtube.php`.
 ## Logging Configuration
 Defined in `config/logging.php`.
 
-- `python` channel path is set to `storage/logs/python.log`.
-- This is the shared Python process log target for channel fetch and chunk fetch scripts.
+- `LOG_RETENTION_DAYS` (default `90`)
+  - Controls all four weekly log families.
+  - Missing, non-integer, zero, and negative values normalize to `90` in both PHP and Python.
+  - As in DLSite List, Python constructs an expiry datetime from this value; keep custom positive values within Python's supported datetime range.
+- Log weeks run Monday through Sunday in UTC. Each family writes plain UTF-8 text to the UTC Monday filename:
+  - `storage/logs/laravel-{YYYY-MM-DD}.log`
+  - `storage/logs/python-{YYYY-MM-DD}.log`
+  - `storage/logs/youtube-{YYYY-MM-DD}.log`
+  - `storage/logs/yt-dlp-update-{YYYY-MM-DD}.log`
+- Laravel uses the custom Monolog handler `App\Logging\WeeklyRotatingFileHandler`; PHP writes use file locking.
+- The `python` channel compatibility path remains `storage/logs/python.log`. Laravel passes that base path to both Python scripts, and `setup_logging(log_file)` derives the weekly directory and `python` stem from it.
+- Laravel explicitly passes the normalized retention value to both Python process entrypoints. Direct script execution reads `LOG_RETENTION_DAYS` and defaults to `90`.
+- Cleanup is lazy and checked before every write. An archive is eligible only after its complete week plus the retention period has elapsed, so records are effectively retained for 90–96 days after they are written with the default setting.
+- Cleanup selects only exact family filenames containing a valid UTC Monday. Active, future, malformed, unrelated, and legacy base files are ignored.
+- Concurrent removal is treated as successful cleanup. Other cleanup errors go to PHP system error output or Python stderr and do not block the current log write.
 
 ### yt-dlp auto-update
 - `YOUTUBE_YT_DLP_AUTO_UPDATE_ENABLED` (default `true`)
@@ -197,11 +210,15 @@ Queue middleware wrappers live under `App\Jobs\Middleware` and delegate to Larav
 
 ### Logs
 - Laravel workflow log:
-  - `storage/logs/youtube.log`
+  - `storage/logs/youtube-{UTC Monday}.log`
 - Python fetch log:
-  - `storage/logs/python.log`
+  - `storage/logs/python-{UTC Monday}.log`
 - yt-dlp update log:
-  - `storage/logs/yt-dlp-update.log`
+  - `storage/logs/yt-dlp-update-{UTC Monday}.log`
+- Default Laravel application log:
+  - `storage/logs/laravel-{UTC Monday}.log`
+
+Existing `laravel.log`, `python.log`, `youtube.log`, and `yt-dlp-update.log` files are legacy files and are never removed by weekly cleanup.
 
 ## Python Binary Resolution
 Resolved by `App\Support\PythonBinaryResolver`:

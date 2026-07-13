@@ -351,10 +351,21 @@ Key rules:
   - Uses status-aware behavior so upcoming live events do not fail the entire chunk.
 - Shared helpers:
   - `python/yt-dlp/lib/common.py`
+  - `python/yt-dlp/lib/weekly_logging.py`
   - `python/yt-dlp/lib/channel_list.py`
   - `python/yt-dlp/lib/video_detail.py`
     - Classifies yt-dlp errors (rate-limited/restricted/upcoming/failed).
     - Sanitizes metadata payloads before serialization.
+
+## Weekly Log Rotation
+- Laravel's `single`, `python`, `youtube`, and `yt_dlp_update` channel names remain stable, but each uses `App\Logging\WeeklyRotatingFileHandler` through Laravel's custom Monolog channel support.
+- The resulting plain-text families are `laravel-{UTC Monday}.log`, `python-{UTC Monday}.log`, `youtube-{UTC Monday}.log`, and `yt-dlp-update-{UTC Monday}.log` under `storage/logs`.
+- Weeks are calculated from each record timestamp and run Monday–Sunday UTC. PHP handlers switch streams at the boundary and lock writes.
+- Python's dependency-free `WeeklyFileHandler` uses `LogRecord.created`, preserving the existing `setup_logging(log_file)` boundary and both script CLIs.
+- `ChannelFetchRunner` and `FetchYoutubeVideoChunkJob` pass the normalized `LOG_RETENTION_DAYS` value into Python; direct Python execution reads the same variable and defaults to `90`.
+- Both handlers scan their small archive family on every write. A weekly archive expires at `week start + 7 days + retention`, which gives records an effective default lifetime of 90–96 days after creation.
+- Cleanup accepts only exact family names with real Monday dates. Active, future, malformed, unrelated, and legacy logs are left untouched.
+- Concurrent deletion is harmless. Genuine PHP failures use system error output and Python failures use stderr, avoiding recursive application logging and allowing the current write to continue.
 
 ## Feed Timestamp Output
 - Atom `<published>` and `<updated>` values are emitted from DB datetimes via `Carbon::toAtomString()`.
@@ -365,9 +376,10 @@ Useful DB/log checks:
 - `youtube_channels.status`: many `failed` or `feed failed` rows usually point to upstream, Python, queue, or storage problems.
 - `youtube_channels.last_error`: most recent persisted failure detail for a channel.
 - `jobs` and `failed_jobs`: queue backlog and hard failures.
-- `storage/logs/youtube.log`: Laravel workflow log.
-- `storage/logs/python.log`: Python fetch log.
-- `storage/logs/yt-dlp-update.log`: yt-dlp update log.
+- `storage/logs/youtube-{UTC Monday}.log`: Laravel workflow log.
+- `storage/logs/python-{UTC Monday}.log`: Python fetch log.
+- `storage/logs/yt-dlp-update-{UTC Monday}.log`: yt-dlp update log.
+- `storage/logs/laravel-{UTC Monday}.log`: default Laravel application log.
 
 Failed or feed-failed channels can usually be retried after fixing the root cause with:
 ```bash

@@ -2,6 +2,9 @@
 
 ## Development
 
+* 2026-07-13 -- 0.6.6 Log Rotation
+  * Added Monday-based UTC weekly log files for Laravel and the Python
+
 * 2026-07-08 -- 0.6.5.1 Python Version
   * Updated Python requirements to "Python 3.14.6"
 

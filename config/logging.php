@@ -1,9 +1,14 @@
 <?php
 
+use App\Logging\WeeklyRotatingFileHandler;
 use Monolog\Handler\NullHandler;
 use Monolog\Handler\StreamHandler;
 use Monolog\Handler\SyslogUdpHandler;
 use Monolog\Processor\PsrLogMessageProcessor;
+
+$retentionDays = WeeklyRotatingFileHandler::normalizeRetentionDays(
+    env('LOG_RETENTION_DAYS', WeeklyRotatingFileHandler::DEFAULT_RETENTION_DAYS),
+);
 
 return [
 
@@ -19,6 +24,8 @@ return [
     */
 
     'default' => env('LOG_CHANNEL', 'stack'),
+
+    'retention_days' => $retentionDays,
 
     /*
     |--------------------------------------------------------------------------
@@ -59,10 +66,15 @@ return [
         ],
 
         'single' => [
-            'driver' => 'single',
-            'path' => storage_path('logs/laravel.log'),
+            'driver' => 'monolog',
+            'handler' => WeeklyRotatingFileHandler::class,
+            'handler_with' => [
+                'filename' => storage_path('logs/laravel.log'),
+                'retentionDays' => $retentionDays,
+                'useLocking' => true,
+            ],
             'level' => env('LOG_LEVEL', 'debug'),
-            'replace_placeholders' => true,
+            'processors' => [PsrLogMessageProcessor::class],
         ],
 
         'daily' => [
@@ -89,7 +101,7 @@ return [
             'handler_with' => [
                 'host' => env('PAPERTRAIL_URL'),
                 'port' => env('PAPERTRAIL_PORT'),
-                'connectionString' => 'tls://'.env('PAPERTRAIL_URL').':'.env('PAPERTRAIL_PORT'),
+                'connectionString' => 'tls://' . env('PAPERTRAIL_URL') . ':' . env('PAPERTRAIL_PORT'),
             ],
             'processors' => [PsrLogMessageProcessor::class],
         ],
@@ -124,24 +136,40 @@ return [
         ],
 
         'youtube' => [
-            'driver' => 'single',
-            'path' => storage_path('logs/youtube.log'),
+            'driver' => 'monolog',
+            'handler' => WeeklyRotatingFileHandler::class,
+            'handler_with' => [
+                'filename' => storage_path('logs/youtube.log'),
+                'retentionDays' => $retentionDays,
+                'useLocking' => true,
+            ],
             'level' => env('LOG_LEVEL', 'debug'),
-            'replace_placeholders' => true,
+            'processors' => [PsrLogMessageProcessor::class],
         ],
 
         'yt_dlp_update' => [
-            'driver' => 'single',
-            'path' => storage_path('logs/yt-dlp-update.log'),
+            'driver' => 'monolog',
+            'handler' => WeeklyRotatingFileHandler::class,
+            'handler_with' => [
+                'filename' => storage_path('logs/yt-dlp-update.log'),
+                'retentionDays' => $retentionDays,
+                'useLocking' => true,
+            ],
             'level' => env('LOG_LEVEL', 'debug'),
-            'replace_placeholders' => true,
+            'processors' => [PsrLogMessageProcessor::class],
         ],
 
         'python' => [
-            'driver' => 'single',
+            'driver' => 'monolog',
+            'handler' => WeeklyRotatingFileHandler::class,
+            'handler_with' => [
+                'filename' => storage_path('logs/python.log'),
+                'retentionDays' => $retentionDays,
+                'useLocking' => true,
+            ],
             'path' => storage_path('logs/python.log'),
             'level' => env('LOG_LEVEL', 'debug'),
-            'replace_placeholders' => true,
+            'processors' => [PsrLogMessageProcessor::class],
         ],
 
         'emergency' => [
