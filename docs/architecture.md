@@ -69,7 +69,7 @@ Current containerized runtime is split by responsibility:
 - `database`
   - MySQL 8.0.
 - `pma`
-  - phpMyAdmin.
+  - phpMyAdmin (uncomment in compose.yaml, disabled for security).
 
 Shared writable Docker volumes are mounted for:
 - `python/yt-dlp_jsons`

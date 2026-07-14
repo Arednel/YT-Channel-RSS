@@ -16,14 +16,14 @@ This path:
 - builds the PHP 8.3 app image from `docker/app.dockerfile`
 - installs Composer dependencies and the Python `yt-dlp` venv inside the app image
 - builds the Nginx image from `docker/web.dockerfile`
-- starts MySQL 8, the queue worker, scheduler worker, Nginx, and phpMyAdmin
+- starts MySQL 8, the queue worker, scheduler worker, Nginx, and phpMyAdmin (phpMyAdmin disabled for security)
 - keeps the Docker test service behind the `test` Compose profile
 - runs `php artisan migrate` through `docker/docker-app-entrypoint.sh`
 
 Access points:
 - Channels page: `http://localhost:8080`
 - Options page: `http://localhost:8080/options`
-- phpMyAdmin: `http://localhost:8888`
+- phpMyAdmin: `http://localhost:8888` (uncomment in compose.yaml, disabled for security)
 
 ## Required Local Setup
 1. Create `.env` from `.env.example` if it does not already exist.

@@ -2,6 +2,9 @@
 
 ## Development
 
+* 2026-07-14 -- 0.6.7 Disabled phpMyAdmin
+  * Disabled phpMyAdmin in compose.yaml (can be uncommented to turn back on)
+
 * 2026-07-13 -- 0.6.6 Log Rotation
   * Added Monday-based UTC weekly log files for Laravel and the Python
 
