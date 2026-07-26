@@ -2,6 +2,9 @@
 
 ## Development
 
+* 2026-07-26 -- 0.6.8 Livewire Version
+  * Set specific Livewire version to v4.3.3
+
 * 2026-07-14 -- 0.6.7 Disabled phpMyAdmin
   * Disabled phpMyAdmin in compose.yaml (can be uncommented to turn back on)
 
