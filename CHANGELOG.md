@@ -2,6 +2,10 @@
 
 ## Development
 
+* 2026-08-24 -- 0.6.8.1 App Name
+  * Set unique APP_NAME
+  * Added APP_NAME to .env.testing.example
+
 * 2026-07-26 -- 0.6.8 Livewire Version
   * Set specific Livewire version to v4.3.3
 
