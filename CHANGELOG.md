@@ -4,11 +4,18 @@ All notable changes to this project are documented in this file.
 
 ## Unreleased
 
+## 0.7.0 - 2026-09-11
+
+*Documentation cleanup*
+
+### Added
+
+* Added an MIT license.
+
 ### Changed
 
 * Reorganized the changelog into versioned sections grouped by change type.
 * Updated architecture, configuration, and testing documentation to match current project behavior and improve clarity.
-* Added an MIT license.
 * Updated README content and structure.
 
 ## 0.6.8.1 - 2026-08-24
