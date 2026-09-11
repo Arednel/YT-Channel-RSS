@@ -8,6 +8,7 @@ All notable changes to this project are documented in this file.
 
 * Reorganized the changelog into versioned sections grouped by change type.
 * Updated architecture, configuration, and testing documentation to match current project behavior and improve clarity
+* Added an MIT license.
 
 ## 0.6.8.1 - 2026-08-24
 
