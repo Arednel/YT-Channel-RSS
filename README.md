@@ -4,9 +4,15 @@ Laravel application that creates per-channel RSS feeds from YouTube using [yt-dl
 
 Recommended use case: creating RSS feed for [FreshRSS](https://github.com/FreshRSS/FreshRSS) with [Youlag](https://github.com/civilblur/youlag) extension.
 
+## Features
+
+- Add YouTube channels using @handle or /channel/UC... URLs and create a separate RSS feed for each saved channel.
+- Keep channel and video metadata updated using yt-dlp, including upcoming/live videos and automatic retry handling.
+- Search, sort, and paginate saved channels, view synchronization status, and copy RSS feed links.
+
 ## Quick Start (requires [Git](https://git-scm.com) and [Docker Compose](https://docs.docker.com/compose))
 
-### 1) Run those commands
+### 1) Run these commands
 
 ```bash
 git clone https://github.com/Arednel/YT-Channel-RSS.git
@@ -17,8 +23,9 @@ docker compose --env-file docker/.env.docker up --build -d
 ```
 
 ### 2) After startup
+
 - YT-Channel RSS available at: `http://localhost:8080`
-- phpMyAdmin available at: `http://localhost:8888` (uncomment in compose.yaml, disabled for security)
+- Optional phpMyAdmin: http://localhost:8888 after enabling it in compose.yaml (disabled by default).
 
 ## Manual installation process
 
@@ -70,18 +77,35 @@ To run the test suite inside Docker with a dedicated test database:
 docker compose --env-file docker/.env.docker --profile test run --rm --build tests
 ```
 
-Run Python tests after installing dev dependencies:
+### Python
+
+Install Python dev dependencies:
 
 ```bash
 pip install -r python/requirements-dev.txt
 ```
 
-Run tests:
+Run Python tests:
 ```bash
 pytest
 ```
 
 ## Additional docs
-- `docs/CONFIGURATION.md`
-- `docs/ARCHITECTURE.md`
-- `docs/TESTING.md`
+
+- [Configuration](docs/CONFIGURATION.md)
+- [Architecture](docs/ARCHITECTURE.md)
+- [Testing](docs/TESTING.md)
+
+## Contributing
+Contributions are very welcome.
+
+## License
+
+Distributed under the terms of the [MIT License](LICENSE), _YT-Channel RSS_ is free and open-source software.
+
+## Issues
+If you encounter any problems, please [file an issue](https://github.com/Arednel/YT-Channel-RSS/issues) along with a detailed description.
+
+## Acknowledgements
+
+- [yt-dlp](https://github.com/yt-dlp/yt-dlp) — used to retrieve YouTube channel and video metadata.
