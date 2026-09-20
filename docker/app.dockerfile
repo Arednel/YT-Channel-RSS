@@ -57,3 +57,5 @@ RUN chown -R www-data:www-data /var/www/youtube_rss/storage /var/www/youtube_rss
 # Copy entrypoint script
 COPY docker/docker-app-entrypoint.sh /usr/local/bin/docker-app-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-app-entrypoint.sh
+
+USER www-data:www-data

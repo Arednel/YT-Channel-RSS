@@ -4,6 +4,10 @@ All notable changes to this project are documented in this file.
 
 ## Unreleased
 
+### Fixed
+
+* Configured Docker application processes to run as `www-data`, preventing shared cache and storage permission errors.
+
 ## 0.7.0 - 2026-09-11
 
 *Documentation cleanup*
